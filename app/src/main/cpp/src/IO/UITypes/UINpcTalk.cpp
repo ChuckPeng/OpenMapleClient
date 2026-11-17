@@ -18,6 +18,7 @@
 #include <nlnx/nx.hpp>
 
 #include "../Components/MapleButton.h"
+#include "../Data/ItemData.h"
 #include "../Gameplay/Stage.h"
 #include "../Net/Packets/NpcInteractionPackets.h"
 #include "../UI.h"
@@ -420,18 +421,45 @@ namespace ms {
             }
         }
 
-        begin = formatted_text.find("#t");
+        // #t<id># stands for the name of an item and can appear more than once,
+        // for any kind of item rather than just consumables.
+        begin = 0;
+        while ((begin = formatted_text.find("#t", begin)) != std::string::npos) {
+            size_t end = formatted_text.find("#", begin + 2);
 
-        if (begin != std::string::npos) {
-            size_t end = formatted_text.find("#", begin + 1);
+            if (end == std::string::npos) {
+                break;
+            }
 
-            if (end != std::string::npos) {
-                size_t b = begin + 2;
-                int32_t itemid = std::stoi(formatted_text.substr(b, end - b));
-                std::string itemname =
-                        nl::nx::string["Consume.img"][itemid]["name"];
+            int32_t itemid;
+            std::string name;
 
-                formatted_text.replace(begin, end - begin, itemname);
+            try {
+                itemid = std::stoi(
+                    formatted_text.substr(begin + 2, end - begin - 2));
+                name = ItemData::get(itemid).get_name();
+            } catch (const std::exception &) {
+                name = "";
+            }
+
+            formatted_text.replace(begin, end - begin + 1, name);
+            begin += name.length();
+        }
+
+        // Item icons cannot be drawn inline here, so drop their markup instead
+        // of leaving the raw code in the sentence.
+        for (const char *tag: { "#i", "#v" }) {
+            begin = 0;
+
+            while ((begin = formatted_text.find(tag, begin))
+                   != std::string::npos) {
+                size_t end = formatted_text.find("#", begin + 2);
+
+                if (end == std::string::npos) {
+                    break;
+                }
+
+                formatted_text.erase(begin, end - begin + 1);
             }
         }
 
