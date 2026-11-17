@@ -33,17 +33,25 @@ void NpcDialogueHandler::handle(InPacket &recv) const {
 
     uint8_t style_b0 = 0;
     uint8_t style_b1 = 0;
+    std::string default_text;
+    int32_t default_number = 0;
+    int32_t min_number = 0;
+    int32_t max_number = 0;
 
-    if (recv.length() > 0) {
-        if (msgtype == 0) {
-            // {b0, b1}
-            // {0, 1} = next
-            // {1, 0} = prev
-            // {1, 1} = nextPrev
-            // {0, 0} = ok
-            style_b0 = recv.read_ubyte();
-            style_b1 = recv.read_ubyte();
-        }
+    if (msgtype == 0 && recv.length() >= 2) {
+        // {b0, b1}
+        // {0, 1} = next
+        // {1, 0} = prev
+        // {1, 1} = nextPrev
+        // {0, 0} = ok
+        style_b0 = recv.read_ubyte();
+        style_b1 = recv.read_ubyte();
+    } else if (msgtype == 2 && recv.length() >= 2) {
+        default_text = recv.read_string();
+    } else if (msgtype == 3 && recv.length() >= 12) {
+        default_number = recv.read_int();
+        min_number = recv.read_int();
+        max_number = recv.read_int();
     }
 
     UI::get().emplace<UINpcTalk>();
@@ -55,8 +63,16 @@ void NpcDialogueHandler::handle(InPacket &recv) const {
                 << text.size();
 
     if (auto npctalk = UI::get().get_element<UINpcTalk>()) {
-        npctalk->get()
-            .change_text(npcid, msgtype, style_b0, style_b1, speaker, text);
+        npctalk->get().change_text(npcid,
+                                   msgtype,
+                                   style_b0,
+                                   style_b1,
+                                   speaker,
+                                   text,
+                                   default_text,
+                                   default_number,
+                                   min_number,
+                                   max_number);
     }
 }
 

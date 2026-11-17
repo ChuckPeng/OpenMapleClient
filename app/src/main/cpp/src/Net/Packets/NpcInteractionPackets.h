@@ -44,6 +44,18 @@ public:
     NpcTalkMorePacket(int32_t selection) : NpcTalkMorePacket(4, 1) {
         write_int(selection);
     }
+
+    // Answer to a prompt that asked for text, such as a password
+    NpcTalkMorePacket(int8_t lastmsg, int8_t response, const std::string &text) :
+        NpcTalkMorePacket(lastmsg, response) {
+        write_string(text);
+    }
+
+    // Answer to a prompt that asked for a number
+    NpcTalkMorePacket(int8_t lastmsg, int8_t response, int32_t number) :
+        NpcTalkMorePacket(lastmsg, response) {
+        write_int(number);
+    }
 };
 
 // Packet which tells the server of an interaction with an NPC shop

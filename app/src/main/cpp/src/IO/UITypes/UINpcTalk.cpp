@@ -21,7 +21,9 @@
 #include "../Gameplay/Stage.h"
 #include "../Net/Packets/NpcInteractionPackets.h"
 #include "../UI.h"
+#include "../../Util/Log.h"
 #include "GameInfo.h"
+#include <algorithm>
 #include <sstream>
 #include <regex>
 
@@ -38,6 +40,11 @@ namespace ms {
             row_max_(0),
             show_slider_(false),
             draw_text_(false),
+            has_input_(false),
+            number_default_(0),
+            number_min_(0),
+            number_max_(0),
+            msgtype_(0),
             formatted_text_(""),
             formatted_text_pos_(0),
             timestep_(0) {
@@ -145,10 +152,18 @@ namespace ms {
                 init_height += element.height();
             }
         }
+
+        if (has_input_) {
+            input_.draw(position_);
+        }
     }
 
     void UINpcTalk::update() {
         UIElement::update();
+
+        if (has_input_) {
+            input_.update(position_);
+        }
 
         // TODO: Need to think of a new way to show text gradually when open NPC dialog
 //        if (draw_text_) {
@@ -172,6 +187,7 @@ namespace ms {
 
     Button::State UINpcTalk::button_pressed(uint16_t buttonid) {
         deactivate();
+        UI::get().remove_textfield();
 
         switch (type_) {
             case TalkType::SEND_NEXT:
@@ -179,11 +195,11 @@ namespace ms {
                 // Type = 0
                 switch (buttonid) {
                     case Buttons::CLOSE:
-                        fn_npc_talk_more(type_, -1);
+                        fn_npc_talk_more(msgtype_, -1);
                         break;
                     case Buttons::NEXT:
                     case Buttons::OK:
-                        fn_npc_talk_more(type_, 1);
+                        fn_npc_talk_more(msgtype_, 1);
                         break;
                 }
                 break;
@@ -191,13 +207,13 @@ namespace ms {
                 // Type = 0
                 switch (buttonid) {
                     case Buttons::CLOSE:
-                        fn_npc_talk_more(type_, -1);
+                        fn_npc_talk_more(msgtype_, -1);
                         break;
                     case Buttons::NEXT:
-                        fn_npc_talk_more(type_, 1);
+                        fn_npc_talk_more(msgtype_, 1);
                         break;
                     case Buttons::PREV:
-                        fn_npc_talk_more(type_, 0);
+                        fn_npc_talk_more(msgtype_, 0);
                         break;
                 }
                 break;
@@ -205,13 +221,13 @@ namespace ms {
                 // Type = 1
                 switch (buttonid) {
                     case Buttons::CLOSE:
-                        fn_npc_talk_more(type_, -1);
+                        fn_npc_talk_more(msgtype_, -1);
                         break;
                     case Buttons::NO:
-                        fn_npc_talk_more(type_, 0);
+                        fn_npc_talk_more(msgtype_, 0);
                         break;
                     case Buttons::YES:
-                        fn_npc_talk_more(type_, 1);
+                        fn_npc_talk_more(msgtype_, 1);
                         break;
                 }
                 break;
@@ -219,27 +235,25 @@ namespace ms {
                 // Type = 1
                 switch (buttonid) {
                     case Buttons::CLOSE:
-                        fn_npc_talk_more(type_, -1);
+                        fn_npc_talk_more(msgtype_, -1);
                         break;
                     case Buttons::QNO:
-                        fn_npc_talk_more(type_, 0);
+                        fn_npc_talk_more(msgtype_, 0);
                         break;
                     case Buttons::QYES:
-                        fn_npc_talk_more(type_, 1);
+                        fn_npc_talk_more(msgtype_, 1);
                         break;
                 }
                 break;
             case TalkType::SEND_GET_TEXT:
-                // TODO: What is this?
-                break;
             case TalkType::SEND_GET_NUMBER:
-                // Type = 3
+                // Type = 2 or 3
                 switch (buttonid) {
                     case Buttons::CLOSE:
-                        fn_npc_talk_more(type_, 0);
+                        fn_npc_talk_more(msgtype_, int8_t(0));
                         break;
                     case Buttons::OK:
-                        fn_npc_talk_more(type_, 1);
+                        send_input();
                         break;
                 }
                 break;
@@ -247,7 +261,7 @@ namespace ms {
                 // Type = 4
                 switch (buttonid) {
                     case Buttons::CLOSE:
-                        fn_npc_talk_more(type_, 0);
+                        fn_npc_talk_more(msgtype_, 0);
                         break;
                     default:
                         // The button id carries the option number, which the
@@ -300,10 +314,43 @@ namespace ms {
     }
 
     void UINpcTalk::send_key(int32_t keycode, bool pressed, bool escape) {
-        if (pressed && escape) {
-            deactivate();
+        if (!pressed) {
+            return;
+        }
 
-            fn_npc_talk_more(type_, 0);
+        if (escape) {
+            deactivate();
+            UI::get().remove_textfield();
+
+            fn_npc_talk_more(msgtype_, int8_t(0));
+        } else if (has_input_ && keycode == KeyAction::Id::RETURN) {
+            send_input();
+        }
+    }
+
+    void UINpcTalk::send_input() {
+        UI::get().remove_textfield();
+        deactivate();
+
+        MS_LOG_INFO << "npc input reply type=" << int32_t(type_) << " text='"
+                    << input_.get_text() << "'";
+
+        if (type_ == TalkType::SEND_GET_NUMBER) {
+            int32_t number = number_default_;
+
+            try {
+                number = std::stoi(input_.get_text());
+            } catch (const std::exception &) {
+                // Keep the default when the player left something unparseable.
+            }
+
+            if (number_max_ > 0) {
+                number = std::clamp(number, number_min_, number_max_);
+            }
+
+            fn_npc_talk_more(msgtype_, int8_t(1), number);
+        } else {
+            fn_npc_talk_more(msgtype_, int8_t(1), input_.get_text());
         }
     }
 
@@ -335,6 +382,10 @@ namespace ms {
                 }
             } else if (value == 4) {
                 return TalkType::SEND_SIMPLE;
+            } else if (value == 2) {
+                return TalkType::SEND_GET_TEXT;
+            } else if (value == 3) {
+                return TalkType::SEND_GET_NUMBER;
             }
             return static_cast<TalkType>(value);
         }
@@ -407,7 +458,12 @@ namespace ms {
                                 uint8_t style_b0,
                                 uint8_t style_b1,
                                 int8_t speakerbyte,
-                                const std::string &tx) {
+                                const std::string &tx,
+                                const std::string &default_text,
+                                int32_t default_number,
+                                int32_t min_number,
+                                int32_t max_number) {
+        msgtype_ = msgtype;
         type_ = get_by_value(msgtype, style_b0, style_b1);
 
         timestep_ = 0;
@@ -521,6 +577,9 @@ namespace ms {
                 break;
             case TalkType::SEND_GET_TEXT:
             case TalkType::SEND_GET_NUMBER:
+                buttons_[Buttons::OK]->set_position(Point<int16_t>(469, y_cord));
+                buttons_[Buttons::OK]->set_active(true);
+                break;
             case TalkType::SEND_SIMPLE:
             default:
                 break;
@@ -528,6 +587,29 @@ namespace ms {
 
         position_ = Point<int16_t>(400 - top_.width() / 2, 240 - height_ / 2);
         dimension_ = Point<int16_t>(top_.width(), height_ + 120);
+
+        has_input_ = type_ == TalkType::SEND_GET_TEXT
+                     || type_ == TalkType::SEND_GET_NUMBER;
+
+        if (has_input_) {
+            number_default_ = default_number;
+            number_min_ = min_number;
+            number_max_ = max_number;
+
+            input_ = Textfield(Text::Font::A11M,
+                               Text::Alignment::LEFT,
+                               Color::Name::DARKGREY,
+                               Rectangle<int16_t>(172, 452, height_ + 2, height_ + 22),
+                               20);
+            input_.change_text(type_ == TalkType::SEND_GET_NUMBER
+                                   ? std::to_string(default_number)
+                                   : default_text);
+            input_.set_enter_callback([&](std::string) { send_input(); });
+            input_.set_key_callback(KeyAction::Id::ESCAPE, [&]() { deactivate(); });
+            input_.set_state(Textfield::State::FOCUSED);
+
+            UI::get().focus_textfield(&input_);
+        }
     }
 
     UINpcTalk::NPCTalkContent UINpcTalk::convert_npc_text(std::string &formatted_text) {

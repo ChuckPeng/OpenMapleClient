@@ -16,6 +16,7 @@
 #pragma once
 
 #include "../Components/Slider.h"
+#include "../Components/Textfield.h"
 #include "../Graphics/Text.h"
 #include "../UIElement.h"
 #include "TextButton.h"
@@ -70,13 +71,20 @@ public:
                      uint8_t style_b0,
                      uint8_t style_b1,
                      int8_t speaker,
-                     const std::string &text);
+                     const std::string &text,
+                     const std::string &default_text = {},
+                     int32_t default_number = 0,
+                     int32_t min_number = 0,
+                     int32_t max_number = 0);
 
 protected:
     Button::State button_pressed(uint16_t buttonid) override;
 
 private:
     TalkType get_by_value(int8_t value, uint8_t style_b0, uint8_t style_b1);
+
+    // Sends the text or number the player typed and closes the dialog.
+    void send_input();
 
     std::string format_text(const std::string &tx, const int32_t &npcid);
 
@@ -122,7 +130,14 @@ private:
 
     bool show_slider_;
     bool draw_text_;
+    bool has_input_;
     Slider slider_;
+    Textfield input_;
+    int32_t number_default_;
+    int32_t number_min_;
+    int32_t number_max_;
+    // The message type as sent by the server, which is what replies carry back.
+    int8_t msgtype_;
     TalkType type_;
     std::string formatted_text_;
     size_t formatted_text_pos_;
