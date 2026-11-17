@@ -41,6 +41,9 @@ android {
     sourceSets {
         main {
             assets.srcDirs = ['src/main/assets']
+            // BASS is linked as a prebuilt shared library, so it also has to be
+            // packaged into the APK explicitly.
+            jniLibs.srcDirs = ['src/main/cpp/thirdparty/bass/libs']
         }
     }
     ndkVersion '26.1.10909125'

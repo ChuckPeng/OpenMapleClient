@@ -15,12 +15,12 @@
 //	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "MapleStat.h"
 
-#include <iostream>
+#include "../Util/Log.h"
 
 namespace ms::MapleStat {
 Id by_id(size_t id) {
     if (id >= LENGTH) {
-        std::cout << "Unknown MapleStat::Id id: [" << id << "]" << std::endl;
+        MS_LOG_WARN << "Unknown MapleStat::Id id: [" << id << "]";
     }
 
     return static_cast<Id>(id);

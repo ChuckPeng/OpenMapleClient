@@ -19,6 +19,7 @@
 #include <optional>
 
 #include "../../Gameplay/Stage.h"
+#include "../../Util/Log.h"
 #include "Helpers/LoginParser.h"
 #include "Helpers/MovementParser.h"
 
@@ -232,9 +233,7 @@ void GiveForeignBuffHandler::handle_buff(InPacket &recv,
         int16_t value = recv.read_short();  // TODO
     }
 
-    std::cerr << std::endl
-              << "Opcode [199] Error: Handler exists but is not implemented."
-              << std::endl;
+    MS_LOG_WARN << "Opcode [199] handler is not implemented.";
 }
 
 void CancelForeignBuffHandler::handle_buff(InPacket &recv,
@@ -244,9 +243,7 @@ void CancelForeignBuffHandler::handle_buff(InPacket &recv,
         chr->get().remove_recurring_effect();
     }
 
-    std::cerr << std::endl
-              << "Opcode [200] Error: Handler exists but is not implemented."
-              << std::endl;
+    MS_LOG_WARN << "Opcode [200] handler is not implemented.";
 }
 
 void SpawnMobHandler::handle(InPacket &recv) const {
@@ -367,9 +364,7 @@ void MobMoveResponseHandler::handle(InPacket &recv) const {
                                                skill_level);
     }
 
-    std::cerr << std::endl
-              << "Opcode [240] Error: Handler exists but is not implemented."
-              << std::endl;
+    MS_LOG_WARN << "Opcode [240] handler is not implemented.";
 }
 
 void ApplyMobStatusHandler::handle(InPacket &recv) const {
@@ -382,9 +377,7 @@ void ApplyMobStatusHandler::handle(InPacket &recv) const {
 
     // and some more ...
 
-    std::cerr << std::endl
-              << "Opcode [242] Error: Handler exists but is not implemented."
-              << std::endl;
+    MS_LOG_WARN << "Opcode [242] handler is not implemented.";
 }
 
 void CancelMobStatusHandler::handle(InPacket &recv) const {
@@ -401,9 +394,7 @@ void CancelMobStatusHandler::handle(InPacket &recv) const {
         mob->get().cancel_buff(12345);  // TODO
     }
 
-    std::cerr << std::endl
-              << "Opcode [243] Error: Handler exists but is not implemented."
-              << std::endl;
+    MS_LOG_WARN << "Opcode [243] handler is not implemented.";
 }
 
 void ShowMobHpHandler::handle(InPacket &recv) const {
@@ -458,9 +449,7 @@ void SetNpcScriptableHandler::handle(InPacket &recv) const {
         int end_time = recv.read_int();
     }
 
-    std::cerr << std::endl
-              << "Opcode [263] Error: Handler exists but is not implemented."
-              << std::endl;
+    MS_LOG_WARN << "Opcode [263] handler is not implemented.";
 }
 
 void DropLootHandler::handle(InPacket &recv) const {

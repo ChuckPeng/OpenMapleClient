@@ -56,11 +56,15 @@ namespace ms {
 
         void move_cursor(double x, double y);
 
-        void set_ratio(double ratio_x, double ratio_y);
+        void set_view_transform(double scale,
+                                double offset_x,
+                                double offset_y);
 
-        double get_ratio_x();
+        double get_scale();
 
-        double get_ratio_y();
+        double get_offset_x();
+
+        double get_offset_y();
 
         GLFMDisplay* get_display();
 
@@ -71,8 +75,9 @@ namespace ms {
         bool fullscreen_;
         float opacity_;
         float opc_step_;
-        double ratio_x;
-        double ratio_y;
+        double scale_;
+        double offset_x_;
+        double offset_y_;
         std::function<void()> fade_procedure_;
         int16_t width_;
         int16_t height_;

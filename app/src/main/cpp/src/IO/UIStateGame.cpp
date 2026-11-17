@@ -19,6 +19,7 @@
 #include <optional>
 
 #include "../Net/Packets/GameplayPackets.h"
+#include "../Util/Log.h"
 #include "OptionalCreator.h"
 #include "UI.h"
 #include "UITypes/UIBuffList.h"
@@ -307,8 +308,8 @@ namespace ms {
                                     channel_count_);
                             break;
                         default:
-                            std::cout << "Action (" << action << ") not handled!"
-                                      << std::endl;
+                            MS_LOG_WARN << "Action (" << action
+                                        << ") not handled!";
                             break;
                     }
                 }

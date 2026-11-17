@@ -15,10 +15,9 @@
 //	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "Inventory.h"
 
-#include <iostream>
-
 #include "../../Data/BulletData.h"
 #include "../../Data/EquipData.h"
+#include "../../Util/Log.h"
 
 namespace ms {
 Inventory::Inventory() : running_uid_(0), meso_(0), bullet_slot_(0) {
@@ -384,8 +383,7 @@ Inventory::Movement Inventory::movementbyvalue(int8_t value) {
         return static_cast<Movement>(value);
     }
 
-    std::cout << "Unknown Inventory::Movement value: [" << value << "]"
-              << std::endl;
+    MS_LOG_WARN << "Unknown Inventory::Movement value: [" << value << "]";
 
     return Inventory::Movement::MOVE_NONE;
 }

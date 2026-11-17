@@ -15,7 +15,7 @@
 //	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #pragma once
 
-#include <iostream>
+#include "../../Util/Log.h"
 
 #include "../../Graphics/Animation.h"
 #include "../Physics/PhysicsObject.h"
@@ -37,7 +37,7 @@ private:
             return static_cast<Type>(id);
         }
 
-        std::cout << "Unknown Background::Type id: [" << id << "]" << std::endl;
+        MS_LOG_WARN << "Unknown Background::Type id: [" << id << "]";
 
         return NORMAL;
     }

@@ -18,6 +18,7 @@
 #include <chrono>
 
 #include "../Configuration.h"
+#include "../Util/Log.h"
 #include "../Util/Randomizer.h"
 #include "PacketProcessor.h"
 #include "Session.h"
@@ -32,16 +33,13 @@ void OutPacket::dispatch() {
 
     if (Configuration::get().get_show_packets()) {
         if (opcode_ == Opcode::PONG) {
-            std::cout << std::endl << "Sent Packet: PONG" << std::endl;
+            MS_LOG_DEBUG << "Sent opcode " << opcode_ << " [PONG]";
+        } else if (send_op_name_map.find(opcode_) != send_op_name_map.end()) {
+            MS_LOG_DEBUG << "Sent opcode " << opcode_ << " ["
+                         << send_op_name_map.at(opcode_) << "] len "
+                         << bytes_.size();
         } else {
-            std::cout << std::endl
-                      << "Sent Packet: " << std::to_string(opcode_);
-
-            if (send_op_name_map.find(opcode_) != send_op_name_map.end()) {
-                std::cout << " [" << send_op_name_map.at(opcode_) << ']';
-            }
-
-            std::cout << std::endl;
+            MS_LOG_DEBUG << "Sent opcode " << opcode_ << " len " << bytes_.size();
         }
     }
 }

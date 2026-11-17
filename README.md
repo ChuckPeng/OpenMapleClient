@@ -6,6 +6,28 @@ OpenMapleClient is a custom, made-from-scratch game client.
 - The client has only been tested with [Cosmic] on PC.
 - The client has only been tested with [MapleServerAndroid] on Android.
 
+# Building
+Requires JDK 17, Android SDK, NDK 26.1.10909125 and CMake 3.22.1.
+
+The `glfm` and `stb` dependencies are git submodules, so they have to be cloned as well:
+
+```
+git clone --recurse-submodules https://github.com/speedyHKjournalist/OpenMapleClient.git
+```
+
+Build the debug APK (`gradlew.bat` on Windows):
+
+```
+./gradlew assembleDebug
+```
+
+The APK is written to `app/build/outputs/apk/debug/app-debug.apk`. Runtime logs are
+written to logcat under the `OpenMapleClient` tag:
+
+```
+adb logcat -s OpenMapleClient
+```
+
 # How To Play
 1. Download required NX files from [NXFiles].
 2. Install Client APK on your Android phone.

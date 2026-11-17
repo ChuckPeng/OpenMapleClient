@@ -15,7 +15,9 @@
 //	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "FootholdTree.h"
 
-#include <iostream>
+#include <string>
+
+#include "../../Util/Log.h"
 
 namespace ms {
 FootholdTree::FootholdTree(const nl::node &src) {
@@ -30,7 +32,7 @@ FootholdTree::FootholdTree(const nl::node &src) {
         try {
             layer = static_cast<uint8_t>(std::stoi(basef.name()));
         } catch (const std::exception &ex) {
-            std::cout << __func__ << ": " << ex.what() << std::endl;
+            MS_LOG_WARN << __func__ << ": " << ex.what();
             continue;
         }
 
@@ -41,7 +43,7 @@ FootholdTree::FootholdTree(const nl::node &src) {
                 try {
                     id = static_cast<uint16_t>(std::stoi(lastf.name()));
                 } catch (const std::exception &ex) {
-                    std::cout << __func__ << ": " << ex.what() << std::endl;
+                    MS_LOG_WARN << __func__ << ": " << ex.what();
                     continue;
                 }
 

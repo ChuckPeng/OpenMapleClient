@@ -16,7 +16,8 @@
 #include "Stance.h"
 
 #include <array>
-#include <iostream>
+
+#include "../../Util/Log.h"
 
 namespace ms {
 Stance::Id Stance::by_state(int8_t state) {
@@ -48,7 +49,7 @@ Stance::Id Stance::by_string(const std::string &name) {
         }
     }
 
-    std::cout << "Unknown Stance::Id name: [" << name << "]" << std::endl;
+    MS_LOG_WARN << "Unknown Stance::Id name: [" << name << "]";
 
     return NONE;
 }

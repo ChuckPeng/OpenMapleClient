@@ -16,6 +16,7 @@
 #include "Session.h"
 
 #include "../Configuration.h"
+#include "../Util/Log.h"
 #include "PacketError.h"
 
 namespace ms {
@@ -114,7 +115,7 @@ void Session::process(const int8_t *bytes, size_t available) {
         try {
             packet_forwarder_->forward(buffer_, length_);
         } catch (const PacketError &err) {
-            std::cout << err.what() << std::endl;
+            MS_LOG_ERROR << "Failed to handle packet: " << err.what();
         }
 
         pos_ = 0;

@@ -21,6 +21,7 @@
 #include "../../Data/ItemData.h"
 #include "../../Data/SkillData.h"
 #include "../../Net/Packets/PlayerPackets.h"
+#include "../../Util/Log.h"
 #include "../Components/MapleButton.h"
 #include "../UI.h"
 #include "../UITypes/Login/UILoginNotice.h"
@@ -958,8 +959,8 @@ namespace ms {
                     }
                 }
             } else {
-                std::cout << "Invalid key mapping: (" << mapping.type << ", "
-                          << mapping.action << ")" << std::endl;
+                MS_LOG_WARN << "Invalid key mapping: (" << mapping.type << ", "
+                            << mapping.action << ")";
             }
 
             if (ficon) {
@@ -1125,9 +1126,9 @@ namespace ms {
                         if (action < KeyAction::Id::LENGTH)
                             ficon = action_icons_[action].get();
                     } else {
-                        std::cout << "Invalid icon type for key mapping: ("
-                                  << mapping.type << ", " << mapping.action << ")"
-                                  << std::endl;
+                        MS_LOG_WARN << "Invalid icon type for key mapping: ("
+                                    << mapping.type << ", " << mapping.action
+                                    << ")";
                     }
 
                     if (ficon) {

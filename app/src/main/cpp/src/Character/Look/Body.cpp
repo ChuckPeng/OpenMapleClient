@@ -19,6 +19,7 @@
 #include <nlnx/nx.hpp>
 #include <string>
 
+#include "../../Util/Log.h"
 #include "StringHandling.h"
 
 namespace ms {
@@ -111,8 +112,7 @@ Body::Layer Body::layer_by_name(const std::string &name) {
 
     if (layer_iter == layers_by_name_.end()) {
         if (!name.empty()) {
-            std::cout << "Unknown Body::Layer name: [" << name << "]"
-                      << std::endl;
+            MS_LOG_WARN << "Unknown Body::Layer name: [" << name << "]";
         }
 
         return Body::Layer::NONE;

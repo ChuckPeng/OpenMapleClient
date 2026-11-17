@@ -19,6 +19,7 @@
 #include "../../Character/Job.h"
 #include "../../Configuration.h"
 #include "../../Net/Packets/SelectCharPackets.h"
+#include "Util/Log.h"
 #include "../Components/AreaButton.h"
 #include "../Components/MapleButton.h"
 #include "../UI.h"
@@ -662,7 +663,7 @@ const CharEntry &UICharSelect::get_character(int32_t id) {
         }
     }
 
-    std::cout << "Invalid character id: [" << id << "]" << std::endl;
+    MS_LOG_WARN << "Invalid character id: [" << id << "]";
 
     static const CharEntry null_character = { {}, {}, 0 };
 

@@ -16,7 +16,7 @@
 #pragma once
 
 #include <cstdint>
-#include <iostream>
+#include "Log.h"
 #include <string>
 #include <vector>
 
@@ -34,7 +34,7 @@ inline T or_default(const std::string &str, T def) {
         int32_t intval = std::stoi(str);
         return static_cast<T>(intval);
     } catch (const std::exception &ex) {
-        std::cout << __func__ << ": " << ex.what() << std::endl;
+        MS_LOG_WARN << __func__ << ": " << ex.what();
 
         return def;
     }

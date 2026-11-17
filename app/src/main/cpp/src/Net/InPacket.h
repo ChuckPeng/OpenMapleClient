@@ -15,8 +15,8 @@
 //	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
-#include <iostream>
 #include <string>
 
 #include "../Template/Point.h"
@@ -93,20 +93,6 @@ public:
     // Inspect a long. Does not advance the buffer position.
     int64_t inspect_long();
 
-    inline void print() {
-        std::cout << "Recv: ";
-        if (top_ > 1 && pos_ == 0) {
-            auto op = inspect_short();
-            std::cout << '[' << op << "] ";
-
-            for (size_t i = sizeof(int16_t); i < top_; i++) {
-                uint16_t byte_view = static_cast<uint8_t>(bytes_[i]);
-                std::cout << byte_view << " ";
-            }
-        }
-        std::cout << std::endl;
-    }
-
 private:
     template<typename T>
     // Read a number and advance the buffer position
@@ -119,15 +105,6 @@ private:
             all += val << (8 * i);
 
             skip(1);
-        }
-
-        if (pos_ > 2) {
-            if constexpr (sizeof(T) == sizeof(int8_t)) {
-                auto byte_view = static_cast<uint8_t>(all);
-                std::cout << static_cast<uint16_t>(byte_view) << " ";
-            } else {
-                std::cout << all << " ";
-            }
         }
 
         return static_cast<T>(all);
@@ -143,11 +120,6 @@ private:
             }
 
             skip(1);
-        }
-
-        std::cout << str << " ";
-        if (pos_ == top_) {
-            std::cout << std::endl;
         }
 
         return str;

@@ -25,6 +25,7 @@
 #include "Timer.h"
 #include "Constants.h"
 #include "Util/HardwareInfo.h"
+#include "Util/Log.h"
 #include "Util/NxFiles.h"
 #include "ScreenResolution.h"
 #include "Singleton.h"
@@ -39,24 +40,24 @@ Error Game::init(GLFMDisplay *pApp) {
     if (Error error = PacketProcessor::get().init(pApp)) {
         return error;
     }
-    std::cout << "Session init success." << std::endl;
+    MS_LOG_INFO << "Session init success.";
     if (Error error = NxFiles::init(pApp)) {
         return error;
     }
-    std::cout << "NxFiles init success." << std::endl;
+    MS_LOG_INFO << "NxFiles init success.";
 
     if (Error error = Window::get().init(pApp)) {
         return error;
     }
-    std::cout << "Window init success." << std::endl;
+    MS_LOG_INFO << "Window init success.";
     if (Error error = Music::init()) {
         return error;
     }
-    std::cout << "Music init success." << std::endl;
+    MS_LOG_INFO << "Music init success.";
     if (Error error = Sound::init()) {
         return error;
     }
-    std::cout << "Sound init success." << std::endl;
+    MS_LOG_INFO << "Sound init success.";
 
     return Error::NONE;
 }
@@ -110,21 +111,8 @@ void Game::start(GLFMDisplay *pApp) {
     if (Error error = init(pApp)) {
         auto message = error.get_message();
         auto details = error.get_details();
-        bool can_retry = error.can_retry();
 
-        std::cout << "Error: " << message << std::endl;
-        std::cout << "Message: " << details << std::endl;
-
-        if (can_retry) {
-            std::cout << "Enter 'retry' to try again." << std::endl;
-
-            std::string command;
-            std::cin >> command;
-
-            if (command == "retry") {
-                start(pApp);
-            }
-        }
+        MS_LOG_ERROR << "Initialization failed: " << message << " - " << details;
     }
 }
 }  // namespace ms

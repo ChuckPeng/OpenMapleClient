@@ -1,10 +1,9 @@
-cmake_minimum_required(VERSION 3.4.1)
-add_compile_definitions(NDK_DEBUG=1)
+cmake_minimum_required(VERSION 3.22.1)
+
+project(OpenMapleClient C CXX)
 
 add_subdirectory(thirdparty)
-include(thirdparty/Deps.cmake)
 
-set(${CMAKE_C_FLAGS}, "${CMAKE_C_FLAGS}")
 # now build app's shared lib
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wno-error=deprecated-declarations")
 set(CMAKE_CXX_STANDARD 17)
@@ -247,4 +246,4 @@ target_include_directories(OpenMapleClient
         ${CMAKE_SOURCE_DIR}/thirdparty/glfm/include
         )
 # add lib dependencies
-target_link_libraries(OpenMapleClient glfm android log GLESv3 freetype NoLifeNx ${CMAKE_SOURCE_DIR}/thirdparty/bass/libs/arm64-v8a/libbass.so)
+target_link_libraries(OpenMapleClient glfm android log GLESv3 freetype NoLifeNx ${CMAKE_SOURCE_DIR}/thirdparty/bass/libs/${ANDROID_ABI}/libbass.so)

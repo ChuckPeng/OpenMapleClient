@@ -19,6 +19,7 @@
 #include "../../IO/UI.h"
 #include "../../IO/UITypes/Login/UILoginNotice.h"
 #include "../../IO/UITypes/UIGaugeBoss.h"
+#include "../../Util/Log.h"
 
 namespace ms {
 void CheckSpwResultHandler::handle(InPacket &recv) const {
@@ -27,8 +28,8 @@ void CheckSpwResultHandler::handle(InPacket &recv) const {
     if (reason == 0) {
         UI::get().emplace<UILoginNotice>(UILoginNotice::Message::INCORRECT_PIC);
     } else {
-        std::cout << "[CheckSpwResultHandler]: Unknown reason: [" << reason
-                  << "]" << std::endl;
+        MS_LOG_WARN << "[CheckSpwResultHandler]: Unknown reason: [" << reason
+                    << "]";
     }
 
     UI::get().enable();
@@ -64,8 +65,7 @@ void FieldEffectHandler::handle(InPacket &recv) const {
             }
         }
     } else {
-        std::cout << "[FieldEffectHandler]: Unknown value: [" << rand << "]"
-                  << std::endl;
+        MS_LOG_WARN << "[FieldEffectHandler]: Unknown value: [" << rand << "]";
     }
 }
 }  // namespace ms

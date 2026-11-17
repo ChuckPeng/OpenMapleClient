@@ -18,6 +18,7 @@
 #include <iostream>
 
 #include "../Configuration.h"
+#include "../Util/Log.h"
 #include "Window.h"
 
 namespace ms {
@@ -82,7 +83,7 @@ namespace ms {
         GLint success;
         GLchar infoLog[bufSize];
 
-        std::cout << "Using OpenGL " << glGetString(GL_VERSION) << std::endl;
+        MS_LOG_INFO << "Using OpenGL " << glGetString(GL_VERSION);
 
         if (FT_Init_FreeType(&ft_library_)) {
             return Error::Code::FREETYPE;
@@ -94,8 +95,8 @@ namespace ms {
 
         FT_Library_Version(ft_library_, &ftmajor, &ftminor, &ftpatch);
 
-        std::cout << "Using FreeType " << ftmajor << "." << ftminor << "."
-                  << ftpatch << std::endl;
+        MS_LOG_INFO << "Using FreeType " << ftmajor << "." << ftminor << "."
+                    << ftpatch;
 
         // Build and compile our shader program
         // ------------------------------------
@@ -250,12 +251,12 @@ namespace ms {
 
         if (FT_New_Memory_Face(ft_library_, (const FT_Byte *) fontData, (FT_Long) fontDataSize, 0,
                                &face)) {
-            std::cerr << "Error: Failed to create new face." << std::endl;
+            MS_LOG_ERROR << "Failed to create new face.";
             return false;
         }
 
         if (FT_Set_Pixel_Sizes(face, pixelw, pixelh)) {
-            std::cerr << "Error: Failed to set pixel sizes." << std::endl;
+            MS_LOG_ERROR << "Failed to set pixel sizes.";
             return false;
         }
 
@@ -266,9 +267,8 @@ namespace ms {
 
         for (uint32_t c = 32; c < 256; c++) {
             if (FT_Load_Char(face, c, FT_LOAD_RENDER)) {
-                std::cerr << "Error: Failed to load a glyph into the glyph slot of "
-                             "a face object."
-                          << std::endl;
+                MS_LOG_ERROR << "Failed to load a glyph into the glyph slot of "
+                                "a face object.";
                 continue;
             }
 
@@ -304,9 +304,8 @@ namespace ms {
 
         for (uint32_t c = 32; c < 256; c++) {
             if (FT_Load_Char(face, c, FT_LOAD_RENDER)) {
-                std::cerr << "Error: Failed to load a glyph into the glyph slot of "
-                             "a face object."
-                          << std::endl;
+                MS_LOG_ERROR << "Failed to load a glyph into the glyph slot of "
+                                "a face object.";
                 continue;
             }
 
@@ -1286,7 +1285,7 @@ namespace ms {
             circles_.emplace_back(1, 1, 1, color);
         }
 
-        glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
         std::vector<Quad::Vertex> triangles;

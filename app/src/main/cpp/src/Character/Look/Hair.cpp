@@ -16,7 +16,7 @@
 #include "Hair.h"
 
 #include <array>
-#include <iostream>
+#include "../../Util/Log.h"
 #include <nlnx/nx.hpp>
 #include <string>
 
@@ -41,8 +41,8 @@ Hair::Hair(int32_t hairid, const BodyDrawInfo &drawinfo) {
                 auto layer_iter = layers_by_name_.find(layername);
 
                 if (layer_iter == layers_by_name_.end()) {
-                    std::cout << "Unknown Hair::Layer name: [" << layername
-                              << "]" << std::endl;
+                    MS_LOG_WARN << "Unknown Hair::Layer name: ["
+                                << layername << "]";
                     continue;
                 }
 

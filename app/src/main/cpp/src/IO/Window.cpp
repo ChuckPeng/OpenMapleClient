@@ -26,8 +26,11 @@
 #include "MapPortals.h"
 #include "Singleton.h"
 #include "Stage.h"
+#include "Util/Log.h"
 
 #include <utility>
+#include <algorithm>
+#include <cmath>
 #include <android/log.h>
 
 namespace ms {
@@ -36,8 +39,9 @@ namespace ms {
             fullscreen_(true),
             opacity_(1.0f),
             opc_step_(0.0f),
-            ratio_x(0.0f),
-            ratio_y(0.0f),
+            scale_(1.0),
+            offset_x_(0.0),
+            offset_y_(0.0),
             width_(Constants::Constants::get().get_viewwidth()),
             height_(Constants::Constants::get().get_viewheight()) {
     }
@@ -48,18 +52,18 @@ namespace ms {
     }
 
     void error_callback(int no, const char *description) {
-        std::cout << "GLFW error [" << no << "]: " << description << std::endl;
+        MS_LOG_WARN << "GLFM error [" << no << "]: " << description;
     }
 
     bool key_callback(GLFMDisplay *display, GLFMKeyCode keyCode, GLFMKeyAction action,
                       int modifiers) {
-        std::cout << "key_callback" << keyCode << " action " << action << std::endl;
+        MS_LOG_DEBUG << "key_callback " << keyCode << " action " << action;
         UI::get().send_key(keyCode, action != GLFMKeyActionReleased);
         return true;
     }
 
     void char_callback(GLFMDisplay *display, const char *string, int modifiers) {
-        std::cout << "char_callback" << string << std::endl;
+        MS_LOG_DEBUG << "char_callback " << string;
         // Determine the length of the wide string (Unicode) to allocate memory
         size_t length = mbstowcs(nullptr, string, 0);
         if (length == (size_t) -1) {
@@ -93,8 +97,10 @@ namespace ms {
 
     bool mousekey_callback(GLFMDisplay *display, int touch, GLFMTouchPhase phase,
                            double x, double y) {
-        Point<double_t> relative_pos = Point<double_t>(x / Window::get().get_ratio_x(),
-                                                       y / Window::get().get_ratio_y());
+        const double scale = Window::get().get_scale();
+        Point<double_t> relative_pos =
+            Point<double_t>((x - Window::get().get_offset_x()) / scale,
+                            (y - Window::get().get_offset_y()) / scale);
         UI::get().set_touch_phase(touch, TouchInfo(relative_pos, phase));
         if (UI::get().should_send_cursor()) {
             Window::get().move_cursor(x, y);
@@ -141,8 +147,11 @@ namespace ms {
     }
 
     void Window::move_cursor(double x, double y) {
-        auto xpos = static_cast<int16_t>(x / Window::get().get_ratio_x());
-        auto ypos = static_cast<int16_t>(y / Window::get().get_ratio_y());
+        const double scale = Window::get().get_scale();
+        auto xpos = static_cast<int16_t>(
+            (x - Window::get().get_offset_x()) / scale);
+        auto ypos = static_cast<int16_t>(
+            (y - Window::get().get_offset_y()) / scale);
         Point<int16_t> pos = Point<int16_t>(xpos, ypos);
         UI::get().send_cursor(pos);
     }
@@ -160,6 +169,30 @@ namespace ms {
     }
 
     void onDraw(GLFMDisplay *display) {
+        // Preserve the aspect ratio of the virtual canvas: scale it uniformly
+        // and letterbox the remainder of the screen.
+        int display_width, display_height;
+        glfmGetDisplaySize(display, &display_width, &display_height);
+
+        const double view_width =
+            Constants::Constants::get().get_viewwidth();
+        const double view_height =
+            Constants::Constants::get().get_viewheight();
+        const double scale =
+            std::min(display_width / view_width, display_height / view_height);
+        const int content_width =
+            static_cast<int>(std::lround(view_width * scale));
+        const int content_height =
+            static_cast<int>(std::lround(view_height * scale));
+        const int viewport_x = (display_width - content_width) / 2;
+        const int viewport_y = (display_height - content_height) / 2;
+
+        glViewport(viewport_x, viewport_y, content_width, content_height);
+        Window::get().set_view_transform(
+            scale,
+            viewport_x,
+            display_height - content_height - viewport_y);
+
         if (ms::program_ == 0) {
             program_ = glCreateProgram();
             GraphicsGL::get().init(display);
@@ -171,9 +204,11 @@ namespace ms {
             UI::get().init();
             Timer::get().start();
 
-            int width, height;
-            glfmGetDisplaySize(display, &width, &height);
-            Window::get().set_ratio(width / 1366.0, height / 768.0);
+            MS_LOG_INFO << "Display " << display_width << "x"
+                        << display_height << ", game view " << content_width
+                        << "x" << content_height << " at (" << viewport_x
+                        << "," << viewport_y << "), virtual canvas "
+                        << view_width << "x" << view_height;
         }
         const int64_t timestep = Constants::TIMESTEP * 1000;
         int64_t accumulator = timestep;
@@ -301,17 +336,24 @@ namespace ms {
         }
     }
 
-    double Window::get_ratio_x() {
-        return ratio_x;
+    double Window::get_scale() {
+        return scale_;
     }
 
-    double Window::get_ratio_y() {
-        return ratio_y;
+    double Window::get_offset_x() {
+        return offset_x_;
     }
 
-    void Window::set_ratio(double ratio_x, double ratio_y) {
-        this->ratio_x = ratio_x;
-        this->ratio_y = ratio_y;
+    double Window::get_offset_y() {
+        return offset_y_;
+    }
+
+    void Window::set_view_transform(double scale,
+                                    double offset_x,
+                                    double offset_y) {
+        scale_ = scale;
+        offset_x_ = offset_x;
+        offset_y_ = offset_y;
     }
 
     GLFMDisplay *Window::get_display() {

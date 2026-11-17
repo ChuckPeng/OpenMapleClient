@@ -15,7 +15,9 @@
 //	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "Face.h"
 
-#include <iostream>
+#include <string>
+
+#include "../../Util/Log.h"
 #include <nlnx/nx.hpp>
 
 namespace ms {
@@ -26,8 +28,7 @@ Expression::Id Expression::byaction(size_t action) {
         return static_cast<Id>(action);
     }
 
-    std::cout << "Unknown Expression::Id action: [" << action << "]"
-              << std::endl;
+    MS_LOG_WARN << "Unknown Expression::Id action: [" << action << "]";
 
     return Expression::Id::DEFAULT;
 }

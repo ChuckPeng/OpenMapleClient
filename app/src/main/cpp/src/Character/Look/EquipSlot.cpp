@@ -15,12 +15,12 @@
 //	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "EquipSlot.h"
 
-#include <iostream>
+#include "../../Util/Log.h"
 
 namespace ms::EquipSlot {
 Id by_id(size_t id) {
     if (id >= Id::LENGTH) {
-        std::cout << "Unknown EquipSlot::Id id: [" << id << "]" << std::endl;
+        MS_LOG_WARN << "Unknown EquipSlot::Id id: [" << id << "]";
 
         return Id::NONE;
     }

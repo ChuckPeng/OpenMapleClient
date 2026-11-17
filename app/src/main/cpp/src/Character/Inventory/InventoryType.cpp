@@ -16,7 +16,8 @@
 #include "InventoryType.h"
 
 #include <array>
-#include <iostream>
+
+#include "../../Util/Log.h"
 
 namespace ms {
 InventoryType::Id InventoryType::by_item_id(int32_t item_id) {
@@ -40,8 +41,7 @@ InventoryType::Id InventoryType::by_value(int8_t value) {
         default: break;
     }
 
-    std::cout << "Unknown InventoryType::Id value: [" << value << "]"
-              << std::endl;
+    MS_LOG_WARN << "Unknown InventoryType::Id value: [" << value << "]";
 
     return Id::NONE;
 }

@@ -15,6 +15,8 @@
 //	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "PacketSwitch.h"
 
+#include <string>
+
 #include "../Configuration.h"
 #include "Handlers/AttackHandlers.h"
 #include "Handlers/CashShopHandlers.h"
@@ -28,6 +30,7 @@
 #include "Handlers/PlayerInteractionHandlers.h"
 #include "Handlers/SetFieldHandlers.h"
 #include "Handlers/TestingHandlers.h"
+#include "Util/Log.h"
 
 namespace ms {
 static const std::unordered_map<uint16_t, std::string_view> op_name_map {
@@ -543,15 +546,24 @@ void PacketSwitch::forward(int8_t *bytes, size_t length) const {
     uint16_t opcode = recv.read_ushort();
 
     if (Configuration::get().get_show_packets()) {
-        if (opcode == PING) {
-            std::cout << "Received Packet: PING" << std::endl;
-        } else {
-            std::cout << "Received Packet: " << std::to_string(opcode) << ' ';
-            if (op_name_map.find(opcode) != op_name_map.end()) {
-                std::cout << '[' << op_name_map.at(opcode) << ']';
-            }
-            std::cout << std::endl;
+        static constexpr char HEX[] = "0123456789ABCDEF";
+
+        std::string dump;
+        dump.reserve(length * 3);
+
+        for (size_t i = 0; i < length; i++) {
+            auto byte = static_cast<uint8_t>(bytes[i]);
+            dump.push_back(HEX[byte >> 4]);
+            dump.push_back(HEX[byte & 0x0F]);
+            dump.push_back(' ');
         }
+
+        const auto name = op_name_map.find(opcode);
+
+        MS_LOG_DEBUG << "Recv opcode " << opcode << " "
+                     << (name != op_name_map.end() ? name->second
+                                                   : std::string_view("?"))
+                     << " len " << length << ": " << dump;
     }
 
     if (opcode < handlers_.size()) {
@@ -559,9 +571,7 @@ void PacketSwitch::forward(int8_t *bytes, size_t length) const {
             // Handler is good, packet is passed on
 
             try {
-                std::cout << '[' << opcode << "] ";
                 handler->handle(recv);
-                std::cout << std::endl;
             } catch (const PacketError &err) {
                 // Notice about an error
                 warn(err.what(), opcode);
@@ -577,6 +587,6 @@ void PacketSwitch::forward(int8_t *bytes, size_t length) const {
 }
 
 void PacketSwitch::warn(std::string_view message, size_t opcode) const {
-    std::cout << "Opcode [" << opcode << "] Error: " << message << std::endl;
+    MS_LOG_WARN << "Opcode [" << opcode << "] " << message;
 }
 }  // namespace ms
