@@ -254,6 +254,10 @@ UIElement::Type UIQuestLog::get_type() const {
     return TYPE;
 }
 
+void UIQuestLog::refresh() {
+    rebuild_rows();
+}
+
 Button::State UIQuestLog::button_pressed(uint16_t buttonid) {
     switch (buttonid) {
         case Buttons::TAB0:

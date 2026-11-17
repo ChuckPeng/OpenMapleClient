@@ -24,6 +24,7 @@
 #include "../../IO/Window.h"
 #include "Helpers/LoginParser.h"
 #include "../../IO/UITypes/UIChatBar.h"
+#include "../../IO/UITypes/UIQuestLog.h"
 #include "../../Net/Packets/LoginPackets.h"
 #include "../../Net/PacketProcessor.h"
 #include "../Packets/GameplayPackets.h"
@@ -322,5 +323,23 @@ void KeymapHandler::handle(InPacket &recv) const {
 
         UI::get().add_keymapping(i, type, action);
     }
+}
+
+void UpdateQuestInfoHandler::handle(InPacket &recv) const {
+    int8_t type = recv.read_byte();
+
+    // 8 means a quest was started or its progress changed. The rest of the
+    // packet is the npc and a follow-up quest, which nothing uses yet.
+    if (type == 8) {
+        int16_t quest = recv.read_short();
+
+        Stage::get().get_player().get_quests().add_started(quest, "");
+
+        if (auto log = UI::get().get_element<UIQuestLog>()) {
+            log->get().refresh();
+        }
+    }
+
+    recv.skip(recv.length());
 }
 }  // namespace ms

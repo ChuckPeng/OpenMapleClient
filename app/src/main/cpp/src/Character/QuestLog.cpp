@@ -29,6 +29,8 @@ void QuestLog::add_in_progress(int16_t qid,
 }
 
 void QuestLog::add_completed(int16_t qid, int64_t time) {
+    // A quest that is done is no longer in progress.
+    started_.erase(qid);
     completed_[qid] = time;
 }
 

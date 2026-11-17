@@ -19,6 +19,7 @@
 #include "../../Gameplay/Stage.h"
 #include "../../IO/UI.h"
 #include "../../IO/UITypes/UIChatBar.h"
+#include "../../IO/UITypes/UIQuestLog.h"
 #include "../../IO/UITypes/UIStatusMessenger.h"
 
 namespace ms {
@@ -95,6 +96,18 @@ void ShowStatusInfoHandler::handle(InPacket &recv) const {
             show_status(Color::Name::RED,
                         "Mode: 0, Mode 2: " + std::to_string(mode2)
                             + " is not handled.");
+        }
+    } else if (mode == 1) {
+        // A quest was completed.
+        int16_t quest = recv.read_short();
+
+        recv.read_byte();
+        int64_t time = recv.read_long();
+
+        Stage::get().get_player().get_quests().add_completed(quest, time);
+
+        if (auto log = UI::get().get_element<UIQuestLog>()) {
+            log->get().refresh();
         }
     } else if (mode == 3) {
         bool white = recv.read_bool();

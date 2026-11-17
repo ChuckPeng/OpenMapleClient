@@ -106,4 +106,10 @@ class AddCooldownHandler : public PacketHandler {
 class KeymapHandler : public PacketHandler {
     void handle(InPacket &recv) const override;
 };
+
+// Tells the client that a quest was started, updated or expired
+// Opcode: UPDATE_QUEST_INFO(211)
+class UpdateQuestInfoHandler : public PacketHandler {
+    void handle(InPacket &recv) const override;
+};
 }  // namespace ms

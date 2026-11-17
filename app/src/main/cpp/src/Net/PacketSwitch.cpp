@@ -421,6 +421,7 @@ enum Opcode : uint16_t {
 
     /// Player
     ADD_COOLDOWN = 234,
+    UPDATE_QUEST_INFO = 211,
 
     /// MapObject
     SPAWN_MOB = 236,
@@ -524,6 +525,7 @@ PacketSwitch::PacketSwitch() {
     emplace<UPDATE_SKILL, UpdateSkillHandler>();
     emplace<FAME_RESPONSE, FameResponseHandler>();
     emplace<ADD_COOLDOWN, AddCooldownHandler>();
+    emplace<UPDATE_QUEST_INFO, UpdateQuestInfoHandler>();
 
     // Messaging handlers
     emplace<SHOW_STATUS_INFO, ShowStatusInfoHandler>();

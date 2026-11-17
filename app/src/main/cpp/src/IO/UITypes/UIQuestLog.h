@@ -40,6 +40,9 @@ public:
 
     UIElement::Type get_type() const override;
 
+    // Rebuilds the list after the quest log changed.
+    void refresh();
+
 protected:
     Button::State button_pressed(uint16_t buttonid) override;
 
