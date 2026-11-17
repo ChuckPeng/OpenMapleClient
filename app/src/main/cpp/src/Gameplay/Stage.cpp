@@ -19,6 +19,7 @@
 #include <utility>
 
 #include "../Configuration.h"
+#include "../Util/Log.h"
 #include "../IO/UI.h"
 #include "../IO/UITypes/UIStatusBar.h"
 #include "../Net/Packets/AttackAndSkillPackets.h"
@@ -278,6 +279,8 @@ void Stage::send_key(KeyType::Id type, int32_t action, bool down) {
 }
 
 Cursor::State Stage::send_cursor(bool pressed, Point<int16_t> position) {
+    MS_LOG_DEBUG << "Stage::send_cursor pressed=" << pressed << " pos=" << position.x()
+                 << "," << position.y();
     auto statusbar = UI::get().get_element<UIStatusBar>();
 
     if (statusbar && statusbar->get().is_menu_active()) {

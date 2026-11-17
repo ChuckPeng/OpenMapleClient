@@ -409,28 +409,29 @@ UIStatusBar::UIStatusBar(const CharStats &st, uint8_t channel_count) :
         position_ = Point<int16_t>(0, 480);
         position_x_ = 410;
         position_y_ = position_.y();
-        dimension_ = Point<int16_t>(VWIDTH_ - position_x_, 140);
     } else if (VWIDTH_ == 1024) {
         position_ = Point<int16_t>(0, 648);
         position_x_ = 410;
         position_y_ = position_.y() + 42;
-        dimension_ = Point<int16_t>(VWIDTH_ - position_x_, 75);
     } else if (VWIDTH_ == 1280) {
         position_ = Point<int16_t>(0, 600);
         position_x_ = 500;
         position_y_ = position_.y() + 42;
-        dimension_ = Point<int16_t>(VWIDTH_ - position_x_, 75);
     } else if (VWIDTH_ == 1366) {
         position_ = Point<int16_t>(0, 648);
         position_x_ = 585;
         position_y_ = position_.y() + 42;
-        dimension_ = Point<int16_t>(VWIDTH_ - position_x_, 75);
     } else if (VWIDTH_ == 1920) {
         position_ = Point<int16_t>(0, 960 + (VHEIGHT_ - 1080));
         position_x_ = 860;
         position_y_ = position_.y() + 40;
-        dimension_ = Point<int16_t>(VWIDTH_ - position_x_, 80);
     }
+
+    // The gauge, the buttons and the quickslots are laid out relative to
+    // position_, and reach all the way to the bottom right of the screen, so
+    // the element has to cover that whole strip. Deriving the width from
+    // position_x_ left the button row outside the element and unclickable.
+    dimension_ = Point<int16_t>(VWIDTH_ - position_.x(), VHEIGHT_ - position_.y());
 }
 
 void UIStatusBar::draw(float alpha) const {
@@ -619,6 +620,7 @@ void UIStatusBar::update() {
 }
 
 Button::State UIStatusBar::button_pressed(uint16_t id) {
+    MS_LOG_INFO << "UIStatusBar button_pressed id=" << id;
     switch (id) {
         case Buttons::BT_CASHSHOP: fn_enter_cashshop(); break;
         case Buttons::BT_MENU: toggle_menu(); break;
@@ -825,8 +827,11 @@ bool UIStatusBar::is_in_range(Point<int16_t> cursorpos) const {
 
     if (!character_active_ && !community_active_ && !event_active_
         && !menu_active_ && !setting_active_) {
-        pos = Point<int16_t>(position_x_, position_y_);
-        bounds = Rectangle<int16_t>(pos, pos + dimension_);
+        // Cover the entire bar, not just the strip below position_y_: the
+        // menu buttons and the quickslot toggles are drawn above that line,
+        // so they used to fall outside the element and could not be clicked.
+        pos = Point<int16_t>(position_x_, position_.y());
+        bounds = Rectangle<int16_t>(pos, Point<int16_t>(VWIDTH_, VHEIGHT_));
     } else {
         uint8_t button_count;
         int16_t pos_y_adj;

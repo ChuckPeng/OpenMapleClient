@@ -53,6 +53,8 @@ public:
 
     void send_key(int32_t keycode, bool pressed, bool escape) override;
 
+    void send_char(uint32_t unicode);
+
     UIElement::Type get_type() const override;
 
 protected:

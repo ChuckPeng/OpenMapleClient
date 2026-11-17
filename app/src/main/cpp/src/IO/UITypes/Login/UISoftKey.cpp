@@ -19,6 +19,7 @@
 #include <utility>
 
 #include "../../Constants.h"
+#include "../../Util/Log.h"
 #include "../Components/MapleButton.h"
 #include "../Components/TwoSpriteButton.h"
 
@@ -133,11 +134,33 @@ UIElement::Type UISoftKey::get_type() const {
     return TYPE;
 }
 
+void UISoftKey::send_char(uint32_t unicode) {
+    std::string entered = entry_.get_text();
+
+    if (entered.size() >= MAX_SIZE_) {
+        return;
+    }
+
+    if (unicode == '\b') {
+        if (!entered.empty()) {
+            entered.pop_back();
+            entry_.change_text(entered);
+        }
+        return;
+    }
+
+    if (unicode >= '0' && unicode <= '9') {
+        entered.push_back(static_cast<char>(unicode));
+        entry_.change_text(entered);
+    }
+}
+
 Button::State UISoftKey::button_pressed(uint16_t buttonid) {
     std::string entered = entry_.get_text();
     size_t size = entered.size();
 
     if (buttonid == Buttons::DEL) {
+        MS_LOG_INFO << "UISoftKey DEL entered=[" << entered << "]";
         if (size > 0) {
             entered.pop_back();
             entry_.change_text(entered);
@@ -148,6 +171,7 @@ Button::State UISoftKey::button_pressed(uint16_t buttonid) {
             deactivate();
         }
     } else if (buttonid == Buttons::OK) {
+        MS_LOG_INFO << "UISoftKey OK with entered=[" << entered << "] len=" << size;
         if (size >= MIN_SIZE_) {
             if (ok_callback_) {
                 ok_callback_(entered);
@@ -158,6 +182,8 @@ Button::State UISoftKey::button_pressed(uint16_t buttonid) {
             show_text("The PIC needs to be at least 6 characters long.");
         }
     } else if (buttonid >= Buttons::NUM0) {
+        MS_LOG_INFO << "UISoftKey press id=" << buttonid
+                    << " digit=" << (buttonid - Buttons::NUM0);
         if (size < MAX_SIZE_) {
             entered.append(std::to_string(buttonid - Buttons::NUM0));
             entry_.change_text(entered);
@@ -179,6 +205,11 @@ void UISoftKey::shufflekeys() {
         Point<int16_t> pos = keypos(reserve[rand]);
 
         buttons_[Buttons::NUM0 + i]->set_position(pos);
+        auto bounds = buttons_[Buttons::NUM0 + i]->bounds(position_);
+        MS_LOG_INFO << "SoftKey idx=" << i << " pos=" << pos.x() << ","
+                    << pos.y() << " bounds=" << bounds.left() << ","
+                    << bounds.top() << " " << bounds.width() << "x"
+                    << bounds.height();
 
         reserve.erase(reserve.begin() + rand);
     }

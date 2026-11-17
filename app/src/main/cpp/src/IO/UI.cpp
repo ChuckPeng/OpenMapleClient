@@ -19,6 +19,7 @@
 #include <utility>
 
 #include "../Gameplay/Stage.h"
+#include "../Util/Log.h"
 #include "../../Audio/Audio.h"
 #include "../../Configuration.h"
 #include "OptionalCreator.h"
@@ -33,6 +34,7 @@
 #include "UITypes/UIOptionMenu.h"
 #include "UITypes/UIQuit.h"
 #include "UITypes/UIShop.h"
+#include "UITypes/Login/UISoftKey.h"
 #include "UITypes/UIStatusBar.h"
 #include "UITypes/UIWorldMap.h"
 #include "UIWorldSelect.h"
@@ -135,6 +137,9 @@ namespace ms {
         Cursor::State cursorstate =
                 (pressed && enabled_) ? Cursor::State::CLICKING : Cursor::State::IDLE;
         Point<int16_t> cursorpos = cursor_.get_position();
+        MS_LOG_DEBUG << "UI::send_cursor pressed=" << pressed
+                     << " enabled=" << enabled_ << " pos=" << cursorpos.x() << ","
+                     << cursorpos.y() << " state=" << cursorstate;
         send_cursor(cursorpos, cursorstate);
 
         if (focused_text_field_ && pressed) {
@@ -370,6 +375,12 @@ namespace ms {
     void UI::send_key(uint32_t unicode) {
         if (focused_text_field_) {
             focused_text_field_->get().send_key(KeyType::Id::TEXT, unicode, true);
+        }
+
+        auto softkey = get_element<UISoftKey>();
+
+        if (softkey && softkey->get().is_active()) {
+            softkey->get().send_char(unicode);
         }
 
         is_key_down_[unicode] = true;  // maybe remove

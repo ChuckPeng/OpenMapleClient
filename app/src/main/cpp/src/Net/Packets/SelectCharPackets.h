@@ -16,6 +16,7 @@
 #pragma once
 
 #include "../OutPacket.h"
+#include "../../Util/Log.h"
 
 namespace ms {
 // Tell the server which character was picked.
@@ -48,6 +49,7 @@ class SelectCharPicPacket : public OutPacket {
 public:
     SelectCharPicPacket(const std::string &pic, int32_t cid) :
         OutPacket(OutPacket::Opcode::SELECT_CHAR_PIC) {
+        MS_LOG_INFO << "SelectCharPicPacket pic=[" << pic << "] cid=" << cid;
         write_string(pic);
         write_int(cid);
         write_hardware_info();

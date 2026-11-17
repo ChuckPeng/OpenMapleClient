@@ -102,6 +102,10 @@ namespace ms {
             Point<double_t>((x - Window::get().get_offset_x()) / scale,
                             (y - Window::get().get_offset_y()) / scale);
         UI::get().set_touch_phase(touch, TouchInfo(relative_pos, phase));
+        MS_LOG_DEBUG << "touch id " << touch << " phase " << static_cast<int>(phase)
+                     << " at " << x << "," << y << " -> game "
+                     << relative_pos.x() << "," << relative_pos.y()
+                     << " send_cursor=" << UI::get().should_send_cursor();
         if (UI::get().should_send_cursor()) {
             Window::get().move_cursor(x, y);
             switch (phase) {
@@ -165,7 +169,7 @@ namespace ms {
     }
 
     void close_callback(GLFMDisplay *display) {
-        UI::get().send_close();
+        MS_LOG_INFO << "Surface destroyed";
     }
 
     void onDraw(GLFMDisplay *display) {
@@ -173,6 +177,16 @@ namespace ms {
         // and letterbox the remainder of the screen.
         int display_width, display_height;
         glfmGetDisplaySize(display, &display_width, &display_height);
+
+        static int last_display_width = -1;
+        static int last_display_height = -1;
+        if (display_width != last_display_width
+            || display_height != last_display_height) {
+            last_display_width = display_width;
+            last_display_height = display_height;
+            MS_LOG_INFO << "Display size changed to " << display_width << "x"
+                        << display_height;
+        }
 
         const double view_width =
             Constants::Constants::get().get_viewwidth();

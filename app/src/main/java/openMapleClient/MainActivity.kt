@@ -2,6 +2,8 @@ package openMapleClient
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.WindowManager
+import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -27,6 +29,7 @@ class MainActivity : AppCompatActivity() {
             .setPositiveButton("OK") { _, _ ->
                 val userInput = editText.text.toString()
                 if (userInput.isNotEmpty()) {
+                    hideKeyboard(editText)
                     saveUserInputToFile(userInput)
                     startOpenMapleClient()
                 }
@@ -38,6 +41,9 @@ class MainActivity : AppCompatActivity() {
             .create()
 
         dialog.show()
+        dialog.window?.setSoftInputMode(
+            WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN
+        )
     }
 
     private fun startOpenMapleClient() {
@@ -45,8 +51,12 @@ class MainActivity : AppCompatActivity() {
         startActivity(intent)
     }
 
-    private fun saveUserInputToFile(userInput: String) {
-        try {
+    private fun hideKeyboard(view: EditText) {
+        val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+        imm.hideSoftInputFromWindow(view.windowToken, 0)
+    }
+
+    private fun saveUserInputToFile(userInput: String) {        try {
             val externalDir = getExternalFilesDir(null)
             val file = File(externalDir, "hostip.txt")
             file.writeText(userInput)
