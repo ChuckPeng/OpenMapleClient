@@ -39,4 +39,29 @@ class ClaimStatusChangedHandler : public PacketHandler {
 class LastConnectedWorldHandler : public PacketHandler {
     void handle(InPacket &recv) const override;
 };
+
+// Tells the client the gender stored on the account
+// Opcode: SET_GENDER(58)
+class SetGenderHandler : public PacketHandler {
+    void handle(InPacket &recv) const override;
+};
+
+// Key bindings of the quickslot bar
+// Opcode: QUICKSLOT_INIT(159)
+class QuickslotInitHandler : public PacketHandler {
+    void handle(InPacket &recv) const override;
+};
+
+// Potion the server uses automatically when hp or mp run low
+// Opcodes: AUTO_HP_POT(336), AUTO_MP_POT(337)
+class AutoPotHandler : public PacketHandler {
+    void handle(InPacket &recv) const override;
+};
+
+// Packets of systems the client does not show yet
+// Opcodes: BUDDYLIST(63), FAMILY_INFO_RESULT(95), FAMILY_PRIVILEGE_LIST(100),
+//          ADMIN_RESULT(144)
+class IgnoredPacketHandler : public PacketHandler {
+    void handle(InPacket &recv) const override;
+};
 }  // namespace ms

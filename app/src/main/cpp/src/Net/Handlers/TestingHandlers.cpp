@@ -76,4 +76,28 @@ void ClaimStatusChangedHandler::handle(InPacket &recv) const {
 void LastConnectedWorldHandler::handle(InPacket &recv) const {
     recv.read_int();  // world id
 }
+
+void SetGenderHandler::handle(InPacket &recv) const {
+    recv.read_byte();  // gender, only used while creating a character
+}
+
+void QuickslotInitHandler::handle(InPacket &recv) const {
+    if (!recv.read_bool()) {
+        return;  // the bar keeps its default key mapping
+    }
+
+    for (int i = 0; i < 8; ++i) {
+        recv.read_int();  // key bound to quickslot i
+    }
+}
+
+void AutoPotHandler::handle(InPacket &recv) const {
+    int32_t itemid = recv.read_int();
+
+    MS_LOG_DEBUG << "auto pot item=" << itemid;
+}
+
+void IgnoredPacketHandler::handle(InPacket &recv) const {
+    recv.skip(recv.length());
+}
 }  // namespace ms

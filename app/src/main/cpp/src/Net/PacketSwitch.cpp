@@ -451,7 +451,17 @@ enum Opcode : uint16_t {
     PLAYER_INTERACTION = 314,
 
     /// Cash Shop
-    SET_CASH_SHOP = 127
+    SET_CASH_SHOP = 127,
+
+    /// Parsed but not shown by the client yet
+    SET_GENDER = 58,
+    BUDDYLIST = 63,
+    FAMILY_INFO_RESULT = 95,
+    FAMILY_PRIVILEGE_LIST = 100,
+    ADMIN_RESULT = 144,
+    QUICKSLOT_INIT = 159,
+    AUTO_HP_POT = 336,
+    AUTO_MP_POT = 337
 };
 
 PacketSwitch::PacketSwitch() {
@@ -547,6 +557,14 @@ PacketSwitch::PacketSwitch() {
     // TODO: New handlers, they need coded and moved to a proper file.
     emplace<CHECK_SPW_RESULT, CheckSpwResultHandler>();
     emplace<FIELD_EFFECT, FieldEffectHandler>();
+    emplace<SET_GENDER, SetGenderHandler>();
+    emplace<QUICKSLOT_INIT, QuickslotInitHandler>();
+    emplace<AUTO_HP_POT, AutoPotHandler>();
+    emplace<AUTO_MP_POT, AutoPotHandler>();
+    emplace<BUDDYLIST, IgnoredPacketHandler>();
+    emplace<FAMILY_INFO_RESULT, IgnoredPacketHandler>();
+    emplace<FAMILY_PRIVILEGE_LIST, IgnoredPacketHandler>();
+    emplace<ADMIN_RESULT, IgnoredPacketHandler>();
 }
 
 void PacketSwitch::forward(int8_t *bytes, size_t length) const {
