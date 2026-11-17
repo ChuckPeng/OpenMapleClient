@@ -410,7 +410,9 @@ namespace ms {
         type_ = get_by_value(msgtype, style_b0, style_b1);
 
         timestep_ = 0;
-        draw_text_ = true;
+        // The text is drawn in full, so the first click must pick an option
+        // instead of being spent on revealing it.
+        draw_text_ = false;
         formatted_text_pos_ = 0;
         formatted_text_ = format_text(tx, npcid);
         content_ = convert_npc_text(formatted_text_);
@@ -562,6 +564,8 @@ namespace ms {
                 line_color_ = Color::Name::BLUE;
             }
             selection_ = std::stoi(match[1].str());
+            // The client picks the option itself, so the index is not shown.
+            line.erase(match.position(), match.length());
             TextButton button = TextButton(Text(Text::Font::A18M,
                                                 Text::Alignment::LEFT,
                                                 line_color_,

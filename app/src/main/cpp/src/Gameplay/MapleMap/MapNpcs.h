@@ -16,6 +16,7 @@
 #pragma once
 
 #include <queue>
+#include <unordered_set>
 
 #include "../IO/Cursor.h"
 #include "../Spawn.h"
@@ -47,9 +48,13 @@ public:
                               Point<int16_t> position,
                               Point<int16_t> viewpos);
 
+    // Mark every NPC with the given template id as driven by a server script.
+    void set_scriptable(int32_t npcid);
+
 private:
     MapObjects npcs_;
 
     std::queue<NpcSpawn> spawns_;
+    std::unordered_set<int32_t> scriptable_ids_;
 };
 }  // namespace ms

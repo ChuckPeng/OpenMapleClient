@@ -294,4 +294,12 @@ void ShowItemGainInChatHandler::handle(InPacket &recv) const {
         Stage::get().get_combat().show_player_affected_by_buff(skillid);
     }
 }
+
+void ScriptProgressMessageHandler::handle(InPacket &recv) const {
+    std::string message = recv.read_string();
+
+    if (auto chatbar = UI::get().get_element<UIChatBar>()) {
+        chatbar->get().send_chatline(message, UIChatBar::LineType::YELLOW);
+    }
+}
 }  // namespace ms

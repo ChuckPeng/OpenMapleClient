@@ -456,9 +456,10 @@ namespace ms {
 
     bool UI::should_send_cursor() {
         if (UI::get().get_state_type() == typeid(UIStateGame)) {
-            VirtualJoyStick joyStick = mobile_input_.getVirtualJoyStick();
+            VirtualJoyStick &joyStick = mobile_input_.getVirtualJoyStick();
             for (const auto &touch_phase: touch_phase_) {
-                if (joyStick.set_state(touch_phase.second))
+                if (joyStick.set_state(touch_phase.first, touch_phase.second)
+                    && joyStick.is_dragging())
                     return false;
             }
 

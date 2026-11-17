@@ -27,7 +27,11 @@ public:
 
     void update();
 
-    bool set_state(TouchInfo touchInfo);
+    // Returns whether the touch is steering the joystick. A touch that begins
+    // inside the circle but never moves is a tap, so it is left to the map.
+    bool set_state(int16_t touch_id, TouchInfo touchInfo);
+
+    bool is_dragging() const { return dragging_; }
 
     void bind_touch_id(int16_t touch_id);
 
@@ -38,6 +42,9 @@ private:
     ColorCircle background_;
     int16_t radius_;
     int16_t bind_touch_id_;
+    int16_t steering_id_ = -1;
+    Point<double_t> begin_pos_;
+    bool dragging_ = false;
     double angle_;
 };
 }  // namespace ms

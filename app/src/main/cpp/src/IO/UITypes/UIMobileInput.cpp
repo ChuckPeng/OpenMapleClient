@@ -68,7 +68,7 @@ namespace ms {
             }
 
             for (const auto &touch_phase: touch_phase_map) {
-                if (joystick_.set_state(touch_phase.second)) {
+                if (joystick_.set_state(touch_phase.first, touch_phase.second)) {
                     joystick_.bind_touch_id(touch_phase.first);
                 }
             }

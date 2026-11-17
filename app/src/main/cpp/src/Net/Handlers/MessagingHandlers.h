@@ -64,4 +64,10 @@ class ScrollResultHandler : public PacketHandler {
 class ShowItemGainInChatHandler : public PacketHandler {
     void handle(InPacket &recv) const override;
 };
+
+// A message about the progress of a scripted event, such as a title being earned
+// Opcode: SCRIPT_PROGRESS_MESSAGE(122)
+class ScriptProgressMessageHandler : public PacketHandler {
+    void handle(InPacket &recv) const override;
+};
 }  // namespace ms

@@ -289,8 +289,11 @@ void UIChatBar::send_key(int32_t keycode, bool pressed, bool escape) {
 }
 
 bool UIChatBar::is_in_range(Point<int16_t> cursorpos) const {
-    auto bounds = get_bounds(dimension_);
-    return bounds.contains(cursorpos);
+    // Only the input line itself takes clicks: the log lines drawn above it are a
+    // transparent overlay on the map, so they must not swallow clicks aimed at
+    // NPCs standing behind them.
+    return Rectangle<int16_t>(position_, position_ + dimension_)
+        .contains(cursorpos);
 }
 
 Cursor::State UIChatBar::send_cursor(bool clicking, Point<int16_t> cursorpos) {

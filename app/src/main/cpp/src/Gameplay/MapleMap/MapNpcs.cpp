@@ -19,6 +19,7 @@
 #include "Npc.h"
 #include "UI.h"
 #include "UINpcTalk.h"
+#include "../../Util/Log.h"
 
 namespace ms {
 namespace {
@@ -45,6 +46,14 @@ void MapNpcs::update(const Physics &physics) {
             npc->get().makeactive();
         } else {
             npcs_.add(spawn.instantiate(physics));
+
+            if (auto spawned = npcs_.get<MapObject>(oid)) {
+                auto &npc = static_cast<Npc &>(spawned->get());
+
+                if (scriptable_ids_.count(npc.get_id())) {
+                    npc.set_scriptable();
+                }
+            }
         }
     }
 
@@ -63,6 +72,19 @@ void MapNpcs::remove(int32_t oid) {
 
 void MapNpcs::clear() {
     npcs_.clear();
+    scriptable_ids_.clear();
+}
+
+void MapNpcs::set_scriptable(int32_t npcid) {
+    scriptable_ids_.insert(npcid);
+
+    for (auto &map_object: npcs_) {
+        Npc *npc = static_cast<Npc *>(map_object.second.get());
+
+        if (npc && npc->get_id() == npcid) {
+            npc->set_scriptable();
+        }
+    }
 }
 
 MapObjects *MapNpcs::get_npcs() {
@@ -77,6 +99,10 @@ Cursor::State MapNpcs::send_cursor(bool pressed,
 
         if (npc && npc->is_active() && npc->inrange(position, viewpos)) {
             if (pressed) {
+                MS_LOG_INFO << "talk to npc oid=" << npc->get_oid()
+                            << " id=" << npc->get_id()
+                            << " scripted=" << npc->isscripted();
+
                 npc->talk([](int id,
                              int msgtype,
                              int b0,

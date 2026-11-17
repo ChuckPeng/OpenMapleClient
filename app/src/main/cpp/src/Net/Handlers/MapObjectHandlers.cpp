@@ -443,13 +443,13 @@ void SetNpcScriptableHandler::handle(InPacket &recv) const {
     int size = recv.read_byte();
 
     for (int i = 0; i < size; ++i) {
-        int id = recv.read_int();
-        std::string name = recv.read_string();
-        int start_time = recv.read_int();
-        int end_time = recv.read_int();
-    }
+        int32_t id = recv.read_int();
+        recv.read_string();  // name shown in the conversation
+        recv.read_int();     // start time
+        recv.read_int();     // end time
 
-    MS_LOG_WARN << "Opcode [263] handler is not implemented.";
+        Stage::get().get_npcs().set_scriptable(id);
+    }
 }
 
 void DropLootHandler::handle(InPacket &recv) const {

@@ -18,6 +18,7 @@
 #include "../IO/UI.h"
 #include "../IO/UITypes/UINpcTalk.h"
 #include "../IO/UITypes/UIShop.h"
+#include "../../Util/Log.h"
 
 namespace ms {
 void NpcDialogueHandler::handle(InPacket &recv) const {
@@ -46,6 +47,11 @@ void NpcDialogueHandler::handle(InPacket &recv) const {
 
     UI::get().emplace<UINpcTalk>();
     UI::get().enable();
+
+    MS_LOG_INFO << "NPC dialogue npc=" << npcid << " type=" << int32_t(msgtype)
+                << " speaker=" << int32_t(speaker) << " styles="
+                << int32_t(style_b0) << "," << int32_t(style_b1) << " len="
+                << text.size();
 
     if (auto npctalk = UI::get().get_element<UINpcTalk>()) {
         npctalk->get()

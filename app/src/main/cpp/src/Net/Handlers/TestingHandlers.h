@@ -27,4 +27,16 @@ class CheckSpwResultHandler : public PacketHandler {
 class FieldEffectHandler : public PacketHandler {
     void handle(InPacket &recv) const override;
 };
+
+// Toggles whether the player may report other characters
+// Opcode: CLAIM_STATUS_CHANGED(47)
+class ClaimStatusChangedHandler : public PacketHandler {
+    void handle(InPacket &recv) const override;
+};
+
+// Tells the client which world it was last connected to
+// Opcode: LAST_CONNECTED_WORLD(26)
+class LastConnectedWorldHandler : public PacketHandler {
+    void handle(InPacket &recv) const override;
+};
 }  // namespace ms

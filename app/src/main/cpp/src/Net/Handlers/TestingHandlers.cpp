@@ -68,4 +68,12 @@ void FieldEffectHandler::handle(InPacket &recv) const {
         MS_LOG_WARN << "[FieldEffectHandler]: Unknown value: [" << rand << "]";
     }
 }
+
+void ClaimStatusChangedHandler::handle(InPacket &recv) const {
+    recv.read_bool();  // whether reporting is enabled
+}
+
+void LastConnectedWorldHandler::handle(InPacket &recv) const {
+    recv.read_int();  // world id
+}
 }  // namespace ms

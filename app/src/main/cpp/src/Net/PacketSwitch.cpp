@@ -359,6 +359,12 @@ enum Opcode : uint16_t {
     RECOMMENDED_WORLDS = 27,
     CHECK_SPW_RESULT = 28,
 
+    /// World selection
+    LAST_CONNECTED_WORLD = 26,
+
+    /// Reporting
+    CLAIM_STATUS_CHANGED = 47,
+
     /// Inventory 1
     MODIFY_INVENTORY = 29,
 
@@ -383,6 +389,7 @@ enum Opcode : uint16_t {
     /// Messaging 2
     SERVER_MESSAGE = 68,
     WEEK_EVENT_MESSAGE = 77,
+    SCRIPT_PROGRESS_MESSAGE = 122,
 
     SKILL_MACROS = 124,
     SET_FIELD = 125,
@@ -516,6 +523,9 @@ PacketSwitch::PacketSwitch() {
     emplace<WEEK_EVENT_MESSAGE, WeekEventMessageHandler>();
     emplace<WHISPER, WhisperReceivedHandler>();
     emplace<SHOW_ITEM_GAIN_INCHAT, ShowItemGainInChatHandler>();
+    emplace<SCRIPT_PROGRESS_MESSAGE, ScriptProgressMessageHandler>();
+    emplace<CLAIM_STATUS_CHANGED, ClaimStatusChangedHandler>();
+    emplace<LAST_CONNECTED_WORLD, LastConnectedWorldHandler>();
 
     // Inventory Handlers
     emplace<MODIFY_INVENTORY, ModifyInventoryHandler>();

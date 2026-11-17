@@ -48,6 +48,9 @@ public:
     // Check whether this is a server-sided NPC
     bool isscripted() const;
 
+    // Marks the NPC as server-sided, so that its WZ dialogue is not used
+    void set_scriptable() { scripted_ = true; }
+
     // Check if the NPC is in range of the cursor.
     bool inrange(Point<int16_t> cursorpos, Point<int16_t> viewpos) const;
 
