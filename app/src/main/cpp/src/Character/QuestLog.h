@@ -36,6 +36,16 @@ public:
 
     int16_t get_last_started() const;
 
+    // Quests the player has started, keyed by quest id.
+    const std::map<int16_t, std::string> &get_started() const {
+        return started_;
+    }
+
+    // Quests the player has finished, keyed by quest id.
+    const std::map<int16_t, int64_t> &get_completed() const {
+        return completed_;
+    }
+
 private:
     std::map<int16_t, std::string> started_;
     std::map<int16_t, std::pair<int16_t, std::string>> in_progress_;

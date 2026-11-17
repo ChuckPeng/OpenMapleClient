@@ -20,6 +20,9 @@
 #include "../Components/Textfield.h"
 #include "../UIDragElement.h"
 
+#include <utility>
+#include <vector>
+
 namespace ms {
 class UIQuestLog : public UIDragElement<PosQUEST> {
 public:
@@ -43,6 +46,17 @@ protected:
 private:
     void change_tab(uint16_t tabid);
 
+    // Rebuilds the visible rows for the current tab.
+    void rebuild_rows();
+
+    void scroll_rows(bool upwards);
+
+    struct Row {
+        int16_t qid;
+        Text name;
+        Text selected_name;
+    };
+
     enum Buttons : uint16_t {
         TAB0,
         TAB1,
@@ -53,8 +67,17 @@ private:
         MY_LOCATION
     };
 
+    static constexpr int16_t ROW_HEIGHT_ = 15;
+    static constexpr int16_t LIST_TOP_ = 76;
+    static constexpr int16_t LIST_LEFT_ = 16;
+    static constexpr int16_t LIST_WIDTH_ = 250;
+    static constexpr int16_t VISIBLE_ROWS_ = 19;
+
     const QuestLog &questlog_;
     uint16_t tab_;
+    std::vector<Row> rows_;
+    int16_t offset_;
+    int16_t selected_;
     std::vector<Sprite> notice_sprites_;
     Textfield search_;
     Text placeholder_;
