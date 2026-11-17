@@ -205,6 +205,14 @@ void Stage::check_portals() {
     Point<int16_t> playerpos = player_.get_position();
     Portal::WarpInfo warpinfo = portals_.find_warp_at(playerpos);
 
+    // Only log the hit: this runs on every arrow-up repeat, which the mobile
+    // joystick sends once per frame.
+    if (warpinfo.valid || warpinfo.intramap) {
+        MS_LOG_INFO << "portal warp at " << playerpos.x() << "," << playerpos.y()
+                    << " intramap=" << warpinfo.intramap << " name="
+                    << warpinfo.name << " mapid=" << warpinfo.mapid;
+    }
+
     if (warpinfo.intramap) {
         Point<int16_t> spawnpoint =
             portals_.get_portal_by_name(warpinfo.toname);
@@ -244,6 +252,9 @@ void Stage::check_drops() {
     Point<int16_t> playerpos = player_.get_position();
     auto [drop_oid, drop_pos] = drops_.find_loot_at(playerpos);
 
+    MS_LOG_INFO << "check_drops at " << playerpos.x() << "," << playerpos.y()
+                << " drop_oid=" << drop_oid;
+
     if (drop_oid) {
         fn_pickup_item(drop_oid, drop_pos);
     }
@@ -267,6 +278,11 @@ void Stage::send_key(KeyType::Id type, int32_t action, bool down) {
                     case KeyAction::Id::ATTACK: combat_.use_move(0); break;
                     case KeyAction::Id::PICKUP: check_drops(); break;
                 }
+            }
+
+            if (action == KeyAction::Id::ATTACK || action == KeyAction::Id::PICKUP
+                || action == KeyAction::Id::SIT) {
+                MS_LOG_INFO << "Stage action " << action << " down=" << down;
             }
 
             playable_->get().send_action(KeyAction::get_action_by_id(action),

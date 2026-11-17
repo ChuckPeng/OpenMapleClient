@@ -18,6 +18,7 @@
 #include <nlnx/nx.hpp>
 
 #include "../../Constants.h"
+#include "../../Util/Log.h"
 #include "StringHandling.h"
 
 namespace ms {
@@ -48,6 +49,11 @@ MapPortals::MapPortals(const nl::node &src, int32_t mapid) {
                                                      position,
                                                      target_id,
                                                      target_name));
+
+        MS_LOG_INFO << "portal id=" << static_cast<int>(portal_id)
+                    << " type=" << static_cast<int>(type) << " name=" << name
+                    << " tn=" << target_name << " tm=" << target_id << " at "
+                    << position.x() << "," << position.y();
 
         portal_ids_by_name_.emplace(name, portal_id);
     }

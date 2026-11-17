@@ -19,6 +19,7 @@
 #include "../../IO/Messages.h"
 #include "../../Net/Packets/AttackAndSkillPackets.h"
 #include "../../Net/Packets/GameplayPackets.h"
+#include "../../Util/Log.h"
 
 namespace ms {
 namespace {
@@ -83,12 +84,18 @@ void Combat::update() {
 
 void Combat::use_move(int32_t move_id) {
     if (!player_.can_attack()) {
+        MS_LOG_INFO << "use_move " << move_id << " refused: can_attack=false"
+                    << " (attacking/ climbing/ sitting/ no weapon)";
         return;
     }
 
     const SpecialMove &move = get_move(move_id);
     SpecialMove::ForbidReason reason = player_.can_use(move);
     Weapon::Type weapontype = player_.get_stats().get_weapontype();
+
+    MS_LOG_INFO << "use_move " << move_id << " forbid=" << static_cast<int>(reason)
+                << " weapon=" << static_cast<int>(weapontype)
+                << " is_attack=" << move.is_attack();
 
     if (reason == SpecialMove::ForbidReason::FBR_NONE) {
         apply_move(move);
