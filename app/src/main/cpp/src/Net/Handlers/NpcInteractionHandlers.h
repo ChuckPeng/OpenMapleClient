@@ -27,4 +27,10 @@ class NpcDialogueHandler : public PacketHandler {
 class OpenNpcShopHandler : public PacketHandler {
     void handle(InPacket &recv) const override;
 };
+
+// Result of a buy or sell request sent to an NPC shop
+// Opcode: CONFIRM_SHOP_TRANSACTION(306)
+class ShopTransactionHandler : public PacketHandler {
+    void handle(InPacket &recv) const override;
+};
 }  // namespace ms

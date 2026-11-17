@@ -250,8 +250,9 @@ namespace ms {
                         fn_npc_talk_more(type_, 0);
                         break;
                     default:
-                        fn_npc_talk_more(content_.text_button_content_[buttonid -
-                                                                       Buttons::TEXT_BUTTON].get_option_number());
+                        // The button id carries the option number, which the
+                        // script chose and need not be contiguous.
+                        fn_npc_talk_more(int32_t(buttonid - Buttons::TEXT_BUTTON));
                         break;
                 }
                 break;

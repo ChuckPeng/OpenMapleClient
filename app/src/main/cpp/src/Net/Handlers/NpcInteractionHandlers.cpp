@@ -16,6 +16,7 @@
 #include "NpcInteractionHandlers.h"
 
 #include "../IO/UI.h"
+#include "../IO/UITypes/UIChatBar.h"
 #include "../IO/UITypes/UINpcTalk.h"
 #include "../IO/UITypes/UIShop.h"
 #include "../../Util/Log.h"
@@ -100,6 +101,31 @@ void OpenNpcShopHandler::handle(InPacket &recv) const {
                                  rechargeprice,
                                  slotmax);
         }
+    }
+}
+
+void ShopTransactionHandler::handle(InPacket &recv) const {
+    int8_t code = recv.read_byte();
+
+    // 0 means a purchase went through and 8 a sale or a recharge; either way the
+    // inventory packet that follows updates the slots themselves.
+    std::string message;
+
+    switch (code) {
+        case 0:
+        case 8: return;
+        case 1:
+        case 5: message = "You don't have enough in stock."; break;
+        case 2: message = "You do not have enough mesos."; break;
+        case 3: message = "Please check if your inventory is full or not."; break;
+        case 6:
+        case 7: message = "Due to an error, the trade did not happen."; break;
+        case 13: message = "You need more items."; break;
+        default: message = "The trade did not happen."; break;
+    }
+
+    if (auto chatbar = UI::get().get_element<UIChatBar>()) {
+        chatbar->get().send_chatline(message, UIChatBar::LineType::YELLOW);
     }
 }
 }  // namespace ms
