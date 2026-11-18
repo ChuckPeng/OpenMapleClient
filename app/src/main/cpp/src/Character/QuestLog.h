@@ -30,6 +30,8 @@ public:
 
     void add_completed(int16_t qid, int64_t time);
 
+    void remove_started(int16_t qid);
+
     bool is_started(int16_t qid) const;
 
     bool is_completed(int16_t qid) const;

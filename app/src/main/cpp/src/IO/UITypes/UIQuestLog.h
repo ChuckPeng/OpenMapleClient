@@ -54,6 +54,17 @@ private:
 
     void scroll_rows(bool upwards);
 
+    // Shows the detail window of the selected quest, if there is one.
+    void build_detail();
+
+    void clear_detail();
+
+    void draw_detail(float alpha) const;
+
+    void give_up();
+
+    void complete();
+
     struct Row {
         int16_t qid;
         Text name;
@@ -67,7 +78,10 @@ private:
         CLOSE,
         SEARCH,
         ALL_LEVEL,
-        MY_LOCATION
+        MY_LOCATION,
+        INFO_CLOSE,
+        INFO_GIVEUP,
+        INFO_COMPLETE
     };
 
     static constexpr int16_t ROW_HEIGHT_ = 15;
@@ -76,11 +90,28 @@ private:
     static constexpr int16_t LIST_WIDTH_ = 250;
     static constexpr int16_t VISIBLE_ROWS_ = 19;
 
+    // The quest detail is a second window attached to the right of the list.
+    static constexpr int16_t DETAIL_WIDTH_ = 296;
+    static constexpr int16_t DETAIL_HEIGHT_ = 396;
+    static constexpr int16_t DETAIL_TEXT_LEFT_ = 16;
+    static constexpr int16_t DETAIL_TEXT_WIDTH_ = 264;
+    static constexpr int16_t DETAIL_TITLE_Y_ = 30;
+    static constexpr int16_t DETAIL_BODY_Y_ = 52;
+    static constexpr int16_t DETAIL_BODY_BOTTOM_ = 350;
+
     const QuestLog &questlog_;
     uint16_t tab_;
     std::vector<Row> rows_;
     int16_t offset_;
     int16_t selected_;
+    int16_t list_width_;
+    int32_t detail_npc_;
+    bool detail_can_complete_;
+    Sprite detail_backgrnd_;
+    Sprite detail_backgrnd2_;
+    Text detail_title_;
+    Text detail_body_;
+    Text detail_required_;
     std::vector<Sprite> notice_sprites_;
     Textfield search_;
     Text placeholder_;

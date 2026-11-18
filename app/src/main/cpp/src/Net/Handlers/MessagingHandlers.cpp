@@ -98,13 +98,21 @@ void ShowStatusInfoHandler::handle(InPacket &recv) const {
                             + " is not handled.");
         }
     } else if (mode == 1) {
-        // A quest was completed.
+        // A quest was started, completed or given up. What follows the status
+        // depends on it (a timestamp for a completion, the progress data for a
+        // started quest), but only the status itself is needed here.
         int16_t quest = recv.read_short();
+        int8_t status = recv.read_byte();
 
-        recv.read_byte();
-        int64_t time = recv.read_long();
+        auto &quests = Stage::get().get_player().get_quests();
 
-        Stage::get().get_player().get_quests().add_completed(quest, time);
+        if (status == 0) {
+            quests.remove_started(quest);
+        } else if (status == 2) {
+            quests.add_completed(quest, 0);
+        } else {
+            quests.add_started(quest, "");
+        }
 
         if (auto log = UI::get().get_element<UIQuestLog>()) {
             log->get().refresh();
@@ -174,6 +182,12 @@ void ServerMessageHandler::handle(InPacket &recv) const {
         UI::get().set_scrollnotice(message + " msclient v0.4.0");
     } else if (type == 7) {
         recv.read_int();  // npcid
+    } else if (type == 0 || type == 2 || type == 5 || type == 6) {
+        // Plain notices, such as the messages the server drops when an action
+        // of the player is refused.
+        if (auto chatbar = UI::get().get_element<UIChatBar>()) {
+            chatbar->get().send_chatline(message, UIChatBar::LineType::YELLOW);
+        }
     }
 }
 
@@ -299,6 +313,8 @@ void ShowItemGainInChatHandler::handle(InPacket &recv) const {
     {
         recv.read_string();  // path
         recv.read_int();     // some int
+    } else if (mode1 == 9)  // quest complete effect, carries no data
+    {
     } else                   // Buff effect
     {
         int32_t skillid = recv.read_int();

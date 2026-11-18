@@ -34,6 +34,12 @@ namespace {
 auto fn_player_login = []<typename... T>(T && ...args) {
     PlayerLoginPacket(std::forward<T>(args)...).dispatch();
 };
+
+void show_quest_message(const std::string &message, UIChatBar::LineType type) {
+    if (auto chatbar = UI::get().get_element<UIChatBar>()) {
+        chatbar->get().send_chatline(message, type);
+    }
+}
 }  // namespace
 
 void transition(int32_t mapid, uint8_t portalid) {
@@ -327,17 +333,64 @@ void KeymapHandler::handle(InPacket &recv) const {
 
 void UpdateQuestInfoHandler::handle(InPacket &recv) const {
     int8_t type = recv.read_byte();
+    auto &quests = Stage::get().get_player().get_quests();
 
-    // 8 means a quest was started or its progress changed. The rest of the
-    // packet is the npc and a follow-up quest, which nothing uses yet.
-    if (type == 8) {
-        int16_t quest = recv.read_short();
+    switch (type) {
+        case 0x06: {  // a time limit was added
+            recv.read_short();
+            int16_t quest = recv.read_short();
+            recv.read_int();
 
-        Stage::get().get_player().get_quests().add_started(quest, "");
+            show_quest_message("Timer started for quest "
+                               + std::to_string(quest) + ".",
+                               UIChatBar::LineType::YELLOW);
+        } break;
+        case 0x07:  // a time limit was removed
+            recv.read_short();
+            recv.read_short();
+            break;
+        case 0x08: {  // a quest was started or its progress changed
+            int16_t quest = recv.read_short();
 
-        if (auto log = UI::get().get_element<UIQuestLog>()) {
-            log->get().refresh();
-        }
+            // The server sends this for a quest that was just finished as
+            // well, which must not put it back into the list of started ones.
+            if (!quests.is_completed(quest)) {
+                quests.add_started(quest, "");
+            }
+
+            if (auto log = UI::get().get_element<UIQuestLog>()) {
+                log->get().refresh();
+            }
+        } break;
+        case 0x0A: {  // the server refused a quest operation
+            int16_t quest = recv.read_short();
+
+            show_quest_message("The quest (" + std::to_string(quest)
+                                   + ") could not be updated.",
+                               UIChatBar::LineType::RED);
+        } break;
+        case 0x0B:
+            show_quest_message("You do not have enough mesos.",
+                               UIChatBar::LineType::RED);
+            break;
+        case 0x0D:
+            show_quest_message("Unequip the item the quest asks for first.",
+                               UIChatBar::LineType::RED);
+            break;
+        case 0x0E:
+            show_quest_message("You do not have the items the quest asks for.",
+                               UIChatBar::LineType::RED);
+            break;
+        case 0x0F: {  // the quest expired
+            int16_t quest = recv.read_short();
+
+            quests.remove_started(quest);
+
+            if (auto log = UI::get().get_element<UIQuestLog>()) {
+                log->get().refresh();
+            }
+        } break;
+        default: break;
     }
 
     recv.skip(recv.length());

@@ -19,14 +19,80 @@
 
 #include <algorithm>
 
+#include "../../Data/ItemData.h"
+#include "../../Gameplay/MapleMap/Npc.h"
+#include "../../Gameplay/Stage.h"
+#include "../../Net/Packets/QuestPackets.h"
 #include "../Components/MapleButton.h"
+#include "../UI.h"
+#include "UIChatBar.h"
 
 namespace ms {
+namespace {
+// Quest descriptions use the same inline markup as npc dialogue.
+std::string format_quest_text(const std::string &text) {
+    std::string formatted = text;
+
+    // #t<id># stands for the name of an item and can appear more than once.
+    size_t begin = 0;
+
+    while ((begin = formatted.find("#t", begin)) != std::string::npos) {
+        size_t end = formatted.find("#", begin + 2);
+
+        if (end == std::string::npos) {
+            break;
+        }
+
+        std::string name;
+
+        try {
+            int32_t itemid =
+                std::stoi(formatted.substr(begin + 2, end - begin - 2));
+            name = ItemData::get(itemid).get_name();
+        } catch (const std::exception &) {
+            name = "";
+        }
+
+        formatted.replace(begin, end - begin + 1, name);
+        begin += name.length();
+    }
+
+    // Tags that would need inline images or colours are dropped together with
+    // their argument instead of leaving the raw code in the sentence.
+    for (const char *tag: { "#i", "#v", "#c", "#L" }) {
+        begin = 0;
+
+        while ((begin = formatted.find(tag, begin)) != std::string::npos) {
+            size_t end = formatted.find("#", begin + 2);
+
+            if (end == std::string::npos) {
+                break;
+            }
+
+            formatted.erase(begin, end - begin + 1);
+        }
+    }
+
+    for (const char *tag: { "#b", "#r", "#k", "#n", "#e", "#g" }) {
+        begin = 0;
+
+        while ((begin = formatted.find(tag, begin)) != std::string::npos) {
+            formatted.erase(begin, 2);
+        }
+    }
+
+    return formatted;
+}
+}  // namespace
+
 UIQuestLog::UIQuestLog(const QuestLog &ql) :
     UIDragElement<PosQUEST>(),
     questlog_(ql),
     offset_(0),
-    selected_(-1) {
+    selected_(-1),
+    list_width_(0),
+    detail_npc_(0),
+    detail_can_complete_(false) {
     tab_ = Buttons::TAB0;
 
     nl::node close = nl::nx::ui["Basic.img"]["BtClose3"];
@@ -86,10 +152,42 @@ UIQuestLog::UIQuestLog(const QuestLog &ql) :
                      1,
                      [&](bool upwards) { scroll_rows(upwards); });
 
-    change_tab(tab_);
+    nl::node quest_info = quest["quest_info"];
 
-    dimension_ = Texture(backgrnd).get_dimensions();
+    detail_backgrnd_ = Sprite(quest_info["backgrnd"]);
+    detail_backgrnd2_ = Sprite(quest_info["backgrnd2"]);
+    detail_title_ = Text(Text::Font::A12B,
+                         Text::Alignment::LEFT,
+                         Color::Name::DARKGREY,
+                         "",
+                         DETAIL_TEXT_WIDTH_);
+    detail_body_ = Text(Text::Font::A12M,
+                        Text::Alignment::LEFT,
+                        Color::Name::DARKGREY,
+                        "",
+                        DETAIL_TEXT_WIDTH_);
+    detail_required_ = Text(Text::Font::A12M,
+                            Text::Alignment::LEFT,
+                            Color::Name::BLUE,
+                            "",
+                            DETAIL_TEXT_WIDTH_);
+
+    Point<int16_t> list_dimension = Texture(backgrnd).get_dimensions();
+    list_width_ = list_dimension.x();
+
+    buttons_[Buttons::INFO_CLOSE] =
+        std::make_unique<MapleButton>(quest_info["BtClose"], list_width_, 0);
+    buttons_[Buttons::INFO_GIVEUP] =
+        std::make_unique<MapleButton>(quest_info["BtGiveup"], list_width_, 0);
+    buttons_[Buttons::INFO_COMPLETE] =
+        std::make_unique<MapleButton>(quest_info["BtFinish"], list_width_, 0);
+
+    dimension_ = Point<int16_t>(list_width_ + DETAIL_WIDTH_,
+                                std::max<int16_t>(list_dimension.y(),
+                                                  DETAIL_HEIGHT_));
     drag_area_ = Point<int16_t>(dimension_.x(), 20);
+
+    change_tab(tab_);
 }
 
 void UIQuestLog::draw(float alpha) const {
@@ -128,6 +226,10 @@ void UIQuestLog::draw(float alpha) const {
             label.draw(position_ + Point<int16_t>(LIST_LEFT_, row_y));
             row_y += ROW_HEIGHT_;
         }
+    }
+
+    if (selected_ >= 0 && size_t(selected_) < rows_.size()) {
+        draw_detail(alpha);
     }
 
     if (tab_ != Buttons::TAB2) {
@@ -185,7 +287,11 @@ Cursor::State UIQuestLog::send_cursor(bool clicking, Point<int16_t> cursorpos) {
                           + (relative.y() - LIST_TOP_) / ROW_HEIGHT_;
 
             if (row >= 0 && size_t(row) < rows_.size()) {
-                selected_ = row;
+                if (selected_ != row) {
+                    selected_ = row;
+
+                    build_detail();
+                }
             }
         }
     }
@@ -196,6 +302,12 @@ Cursor::State UIQuestLog::send_cursor(bool clicking, Point<int16_t> cursorpos) {
 }
 
 void UIQuestLog::rebuild_rows() {
+    int16_t previous = -1;
+
+    if (selected_ >= 0 && size_t(selected_) < rows_.size()) {
+        previous = rows_[selected_].qid;
+    }
+
     rows_.clear();
     offset_ = 0;
     selected_ = -1;
@@ -241,6 +353,18 @@ void UIQuestLog::rebuild_rows() {
 
     slider_.setrows(pages, pages);
     slider_.setenabled(rows > VISIBLE_ROWS_);
+
+    if (previous >= 0) {
+        for (size_t i = 0; i < rows_.size(); i++) {
+            if (rows_[i].qid == previous) {
+                selected_ = int16_t(i);
+
+                break;
+            }
+        }
+    }
+
+    build_detail();
 }
 
 void UIQuestLog::scroll_rows(bool upwards) {
@@ -267,10 +391,172 @@ Button::State UIQuestLog::button_pressed(uint16_t buttonid) {
 
             return Button::State::IDENTITY;
         case Buttons::CLOSE: deactivate(); break;
+        case Buttons::INFO_CLOSE:
+            selected_ = -1;
+
+            clear_detail();
+
+            return Button::State::NORMAL;
+        case Buttons::INFO_GIVEUP: give_up(); break;
+        case Buttons::INFO_COMPLETE: complete(); break;
         default: break;
     }
 
     return Button::State::NORMAL;
+}
+
+void UIQuestLog::build_detail() {
+    detail_npc_ = 0;
+    detail_can_complete_ = false;
+
+    if (selected_ < 0 || size_t(selected_) >= rows_.size()) {
+        clear_detail();
+
+        return;
+    }
+
+    int16_t qid = rows_[selected_].qid;
+    std::string qidstr = std::to_string(qid);
+
+    nl::node info = nl::nx::quest["QuestInfo.img"][qidstr];
+
+    detail_title_.change_text(format_quest_text(info["name"]));
+    detail_body_.change_text(
+        format_quest_text(info[tab_ == Buttons::TAB2 ? "2" : "1"]));
+    detail_required_.change_text("");
+
+    bool started = tab_ == Buttons::TAB1;
+
+    if (started) {
+        nl::node check = nl::nx::quest["Check.img"][qidstr];
+
+        std::string required;
+
+        for (nl::node item: check["1"]["item"]) {
+            auto itemid = int32_t(item["id"].get_integer());
+            auto count = int32_t(item["count"].get_integer());
+
+            if (!required.empty()) {
+                required += ", ";
+            }
+
+            required += ItemData::get(itemid).get_name() + " x"
+                        + std::to_string(count);
+        }
+
+        if (!required.empty()) {
+            detail_required_.change_text("Needed: " + required);
+        }
+
+        // The server only accepts an operation from next to the npc that is
+        // tied to it. Quests that start or finish on their own need none.
+        detail_npc_ = int32_t(check["1"]["npc"].get_integer());
+
+        if (detail_npc_ == 0) {
+            detail_npc_ = int32_t(check["0"]["npc"].get_integer());
+        }
+
+        detail_can_complete_ = detail_npc_ != 0
+                               || info["autoComplete"].get_integer() == 1
+                               || info["autoStart"].get_integer() == 1;
+    }
+
+    buttons_[Buttons::INFO_CLOSE]->set_active(true);
+    buttons_[Buttons::INFO_GIVEUP]->set_active(started);
+    buttons_[Buttons::INFO_COMPLETE]->set_active(started
+                                                 && detail_can_complete_);
+}
+
+void UIQuestLog::clear_detail() {
+    detail_npc_ = 0;
+    detail_can_complete_ = false;
+
+    detail_title_.change_text("");
+    detail_body_.change_text("");
+    detail_required_.change_text("");
+
+    buttons_[Buttons::INFO_CLOSE]->set_active(false);
+    buttons_[Buttons::INFO_GIVEUP]->set_active(false);
+    buttons_[Buttons::INFO_COMPLETE]->set_active(false);
+}
+
+void UIQuestLog::draw_detail(float alpha) const {
+    Point<int16_t> origin = position_ + Point<int16_t>(list_width_, 0);
+
+    detail_backgrnd_.draw(origin, alpha);
+    detail_backgrnd2_.draw(origin, alpha);
+
+    detail_title_.draw(
+        origin + Point<int16_t>(DETAIL_TEXT_LEFT_, DETAIL_TITLE_Y_));
+
+    int16_t title_height = detail_title_.height();
+    int16_t body_y = DETAIL_BODY_Y_
+                     + std::max<int16_t>(0, title_height - 14);
+
+    detail_body_.draw(origin + Point<int16_t>(DETAIL_TEXT_LEFT_, body_y),
+                      Range<int16_t>(origin.y() + body_y,
+                                     origin.y() + DETAIL_BODY_BOTTOM_));
+
+    if (!detail_required_.empty()) {
+        int16_t required_y = body_y + detail_body_.height() + 10;
+
+        if (required_y < DETAIL_BODY_BOTTOM_) {
+            detail_required_.draw(
+                origin + Point<int16_t>(DETAIL_TEXT_LEFT_, required_y));
+        }
+    }
+}
+
+void UIQuestLog::give_up() {
+    if (selected_ < 0 || size_t(selected_) >= rows_.size()) {
+        return;
+    }
+
+    QuestActionPacket packet(QuestActionPacket::FORFEIT, rows_[selected_].qid);
+
+    packet.dispatch();
+}
+
+void UIQuestLog::complete() {
+    if (selected_ < 0 || size_t(selected_) >= rows_.size()) {
+        return;
+    }
+
+    int16_t qid = rows_[selected_].qid;
+
+    // The server drops a completion silently when the npc is not on the map at
+    // all, so tell the player what is missing instead of doing nothing.
+    if (detail_npc_ != 0) {
+        bool npc_on_map = false;
+
+        for (auto &entry: *Stage::get().get_npcs().get_npcs()) {
+            const Npc *npc = static_cast<const Npc *>(entry.second.get());
+
+            if (npc && npc->get_id() == detail_npc_) {
+                npc_on_map = true;
+
+                break;
+            }
+        }
+
+        if (!npc_on_map) {
+            std::string npcname =
+                nl::nx::string["Npc.img"][std::to_string(detail_npc_)]["name"];
+
+            if (auto chatbar = UI::get().get_element<UIChatBar>()) {
+                chatbar->get().send_chatline(
+                    "Go to " + npcname + " to finish this quest.",
+                    UIChatBar::LineType::YELLOW);
+            }
+
+            return;
+        }
+    }
+
+    QuestActionPacket packet(QuestActionPacket::COMPLETE, qid);
+
+    packet.write_npc(detail_npc_, Stage::get().get_player().get_position());
+    packet.dispatch();
 }
 
 void UIQuestLog::change_tab(uint16_t tabid) {

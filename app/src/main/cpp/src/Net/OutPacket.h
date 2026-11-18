@@ -268,6 +268,9 @@ public:
         SPEND_SP = 90,
         CHANGE_KEYMAP = 135,
 
+        /// Quests
+        QUEST_ACTION = 107,
+
         /// Skill
         USE_SKILL = 91,
 

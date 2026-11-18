@@ -19,6 +19,8 @@
 
 namespace ms {
 void QuestLog::add_started(int16_t qid, const std::string &qdata) {
+    // A repeatable quest that is taken again is no longer completed.
+    completed_.erase(qid);
     started_[qid] = qdata;
 }
 
@@ -32,6 +34,10 @@ void QuestLog::add_completed(int16_t qid, int64_t time) {
     // A quest that is done is no longer in progress.
     started_.erase(qid);
     completed_[qid] = time;
+}
+
+void QuestLog::remove_started(int16_t qid) {
+    started_.erase(qid);
 }
 
 bool QuestLog::is_started(int16_t qid) const {
