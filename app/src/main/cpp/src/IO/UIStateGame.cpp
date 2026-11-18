@@ -343,8 +343,10 @@ namespace ms {
                 remove_cursor(focusedelement->get_type());
                 return focusedelement->send_cursor(clicked, cursorpos);
             }
+
+            // The element stayed behind from an earlier dialog; let this click
+            // through instead of swallowing it.
             focused_ = UIElement::Type::NONE;
-            return cursorstate;
         }
         if (!clicked) {
             dragged_ = nullptr;
