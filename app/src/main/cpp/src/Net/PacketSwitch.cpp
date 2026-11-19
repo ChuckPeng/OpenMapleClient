@@ -445,6 +445,7 @@ enum Opcode : uint16_t {
     NPC_DIALOGUE = 304,
     OPEN_NPC_SHOP = 305,
     CONFIRM_SHOP_TRANSACTION = 306,
+    STORAGE = 309,
     KEYMAP = 335,
 
     /// Player Interaction
@@ -548,6 +549,7 @@ PacketSwitch::PacketSwitch() {
     emplace<NPC_DIALOGUE, NpcDialogueHandler>();
     emplace<OPEN_NPC_SHOP, OpenNpcShopHandler>();
     emplace<CONFIRM_SHOP_TRANSACTION, ShopTransactionHandler>();
+    emplace<STORAGE, StorageHandler>();
 
     // Player Interaction
     emplace<CHAR_INFO, CharInfoHandler>();

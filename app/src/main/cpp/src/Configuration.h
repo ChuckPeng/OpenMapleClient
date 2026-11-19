@@ -410,6 +410,11 @@ struct PosSHOP : public Configuration::PointEntry {
     PosSHOP() : PointEntry("PosSHOP", "(146, 48)") {}
 };
 
+// The default position of UIStorage
+struct PosSTORAGE : public Configuration::PointEntry {
+    PosSTORAGE() : PointEntry("PosSTORAGE", "(200, 120)") {}
+};
+
 // The default position of UINotice
 struct PosNOTICE : public Configuration::PointEntry {
     PosNOTICE() : PointEntry("PosNOTICE", "(400, 285)") {}

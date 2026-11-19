@@ -114,6 +114,7 @@ add_library(OpenMapleClient SHARED
         src/IO/UITypes/UIStatsInfo.cpp
         src/IO/UITypes/UIStatusBar.cpp
         src/IO/UITypes/UIStatusMessenger.cpp
+        src/IO/UITypes/UIStorage.cpp
         src/IO/UITypes/UITrade.cpp
         src/IO/UITypes/UIUserList.cpp
         src/IO/UITypes/UIWorldMap.cpp

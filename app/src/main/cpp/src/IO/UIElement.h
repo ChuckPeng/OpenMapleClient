@@ -50,6 +50,7 @@ public:
         NOTICE,
         NPC_TALK,
         SHOP,
+        STORAGE,
         STATS_INFO,
         ITEM_INVENTORY,
         EQUIP_INVENTORY,

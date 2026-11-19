@@ -316,6 +316,7 @@ namespace ms {
                     types.emplace_back(UIElement::Type::USER_LIST);
                     types.emplace_back(UIElement::Type::NPC_TALK);
                     types.emplace_back(UIElement::Type::CHAR_INFO);
+                    types.emplace_back(UIElement::Type::STORAGE);
                 } else if (enter) {
                     // Login
                     types.emplace_back(UIElement::Type::SOFT_KEYBOARD);

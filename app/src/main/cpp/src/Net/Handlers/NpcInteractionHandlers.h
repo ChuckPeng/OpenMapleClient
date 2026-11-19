@@ -33,4 +33,10 @@ class OpenNpcShopHandler : public PacketHandler {
 class ShopTransactionHandler : public PacketHandler {
     void handle(InPacket &recv) const override;
 };
+
+// Opens a storage and keeps it up to date
+// Opcode: STORAGE(309)
+class StorageHandler : public PacketHandler {
+    void handle(InPacket &recv) const override;
+};
 }  // namespace ms

@@ -19,9 +19,68 @@
 #include "../IO/UITypes/UIChatBar.h"
 #include "../IO/UITypes/UINpcTalk.h"
 #include "../IO/UITypes/UIShop.h"
+#include "../IO/UITypes/UIStorage.h"
 #include "../../Util/Log.h"
+#include "Helpers/ItemParser.h"
+
+#include <map>
+#include <vector>
 
 namespace ms {
+namespace {
+// Reads the item infos that follow a storage packet.
+std::vector<UIStorage::StorageItem> read_storage_items(InPacket &recv,
+                                                       int count) {
+    std::vector<UIStorage::StorageItem> items;
+    Inventory temporary;
+
+    for (int i = 0; i < count; i++) {
+        auto type = InventoryType::by_value(recv.inspect_byte());
+        int16_t slot = int16_t(i + 1);
+
+        ItemParser::parse_item(recv, type, slot, temporary);
+
+        items.push_back({ type,
+                          temporary.get_item_id(type, slot),
+                          temporary.get_item_count(type, slot) });
+    }
+
+    return items;
+}
+
+// The packet encodes an inventory type as 2 << type.
+InventoryType::Id type_from_encoding(int16_t encoding) {
+    int8_t type = 0;
+
+    while (encoding > 2) {
+        encoding >>= 1;
+        type++;
+    }
+
+    return InventoryType::by_value(type);
+}
+
+void replace_storage_items(UIStorage &storage,
+                           std::vector<UIStorage::StorageItem> items) {
+    std::map<InventoryType::Id, std::vector<UIStorage::StorageItem>> by_type;
+
+    for (auto &item: items) {
+        by_type[item.type].push_back(item);
+    }
+
+    for (auto &entry: by_type) {
+        storage.set_items(entry.first, std::move(entry.second));
+    }
+}
+
+void show_storage_message(const std::string &message) {
+    MS_LOG_INFO << "storage: " << message;
+
+    if (auto chatbar = UI::get().get_element<UIChatBar>()) {
+        chatbar->get().send_chatline(message, UIChatBar::LineType::YELLOW);
+    }
+}
+}  // namespace
 void NpcDialogueHandler::handle(InPacket &recv) const {
     recv.skip(1);
 
@@ -143,5 +202,79 @@ void ShopTransactionHandler::handle(InPacket &recv) const {
     if (auto chatbar = UI::get().get_element<UIChatBar>()) {
         chatbar->get().send_chatline(message, UIChatBar::LineType::YELLOW);
     }
+}
+
+void StorageHandler::handle(InPacket &recv) const {
+    int8_t mode = recv.read_byte();
+
+    switch (mode) {
+        case 0x16: {  // the storage is opened
+            int32_t npcid = recv.read_int();
+            uint8_t slots = recv.read_ubyte();
+
+            recv.read_short();  // 0x7E
+            recv.read_short();
+            recv.read_int();
+
+            int32_t meso = recv.read_int();
+
+            recv.read_short();
+
+            int count = recv.read_ubyte();
+
+            UI::get().emplace<UIStorage>();
+
+            auto element = UI::get().get_element<UIStorage>();
+
+            if (!element) {
+                return;
+            }
+
+            UIStorage &storage = element->get();
+
+            storage.reset(npcid, slots, meso);
+            replace_storage_items(storage, read_storage_items(recv, count));
+        } break;
+        case 0x09:    // items were taken out
+        case 0x0D: {  // items were stored
+            recv.read_ubyte();  // slots
+
+            auto type = type_from_encoding(recv.read_short());
+
+            recv.read_short();
+            recv.read_int();
+
+            int count = recv.read_ubyte();
+
+            auto element = UI::get().get_element<UIStorage>();
+
+            if (!element) {
+                return;
+            }
+
+            element->get().set_items(type, read_storage_items(recv, count));
+        } break;
+        case 0x13: {  // the mesos of the storage changed
+            recv.read_ubyte();
+            recv.read_short();
+            recv.read_short();
+            recv.read_int();
+
+            int32_t meso = recv.read_int();
+
+            if (auto element = UI::get().get_element<UIStorage>()) {
+                element->get().set_meso(meso);
+            }
+        } break;
+        case 0x0A: show_storage_message("Your inventory is full."); break;
+        case 0x0B: show_storage_message("You do not have enough mesos."); break;
+        case 0x0C:
+            show_storage_message("You can only have one of this item.");
+            break;
+        case 0x11: show_storage_message("The storage is full."); break;
+        default: break;
+    }
+
+    recv.skip(recv.length());
 }
 }  // namespace ms
