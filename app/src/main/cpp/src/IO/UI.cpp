@@ -61,6 +61,9 @@ namespace ms {
     }
 
     void UI::update() {
+        if (ime_hidden_pending_.exchange(false, std::memory_order_acquire)) {
+            on_keyboard_visibility_changed(false);
+        }
         state_->update();
         scrolling_notice_.update();
         cursor_.update();
@@ -76,6 +79,7 @@ namespace ms {
     }
 
     void UI::change_state(State id) {
+        remove_textfield();
         switch (id) {
             case State::LOGIN:
                 state_ = std::make_unique<UIStateLogin>();
@@ -392,23 +396,49 @@ namespace ms {
     }
 
     void UI::focus_textfield(Textfield *tofocus) {
-        if (focused_text_field_) {
-            focused_text_field_->get().set_state(Textfield::State::NORMAL);
-        }
+        Textfield *prev =
+                focused_text_field_ ? &focused_text_field_->get() : nullptr;
 
         if (tofocus) {
+            ime_hidden_pending_.store(false, std::memory_order_release);
             focused_text_field_ = *tofocus;
         } else {
             focused_text_field_ = {};
+        }
+
+        if (prev && prev != tofocus) {
+            prev->set_state(Textfield::State::NORMAL);
         }
     }
 
     void UI::remove_textfield() {
         if (focused_text_field_) {
-            focused_text_field_->get().set_state(Textfield::State::NORMAL);
+            Textfield &prev = focused_text_field_->get();
+            focused_text_field_ = {};
+            prev.set_state(Textfield::State::NORMAL);
         }
+    }
 
-        focused_text_field_ = {};
+    void UI::clear_focused_textfield(const Textfield *textfield) {
+        if (focused_text_field_ && &focused_text_field_->get() == textfield) {
+            focused_text_field_ = {};
+        }
+    }
+
+    bool UI::has_focused_textfield() const {
+        return focused_text_field_.has_value();
+    }
+
+    void UI::on_keyboard_visibility_changed(bool visible) {
+        if (!visible && get_state_type() == typeid(UIStateGame)) {
+            if (auto chatbar = get_element<UIChatBar>()) {
+                chatbar->get().on_ime_hidden();
+            }
+        }
+    }
+
+    void UI::notify_ime_hidden_from_platform() {
+        ime_hidden_pending_.store(true, std::memory_order_release);
     }
 
     void UI::drag_icon(Icon *icon) {
@@ -457,11 +487,25 @@ namespace ms {
 
     bool UI::should_send_cursor() {
         if (UI::get().get_state_type() == typeid(UIStateGame)) {
+            auto release_chat_focus = [this]() {
+                if (auto chatbar = get_element<UIChatBar>()) {
+                    if (chatbar->get().is_chatfield_open()) {
+                        chatbar->get().toggle_chatfield(false);
+                        return;
+                    }
+                }
+                if (focused_text_field_) {
+                    remove_textfield();
+                }
+            };
+
             VirtualJoyStick &joyStick = mobile_input_.getVirtualJoyStick();
             for (const auto &touch_phase: touch_phase_) {
                 if (joyStick.set_state(touch_phase.first, touch_phase.second)
-                    && joyStick.is_dragging())
+                    && joyStick.is_dragging()) {
+                    release_chat_focus();
                     return false;
+                }
             }
 
             for (const auto &iter: mobile_input_.getTouchButtons()) {
@@ -471,8 +515,10 @@ namespace ms {
                         should_not_send = should_not_send || button->set_state(touch_phase.second);
                     }
                 }
-                if (should_not_send)
+                if (should_not_send) {
+                    release_chat_focus();
                     return false;
+                }
             }
         }
         return true;

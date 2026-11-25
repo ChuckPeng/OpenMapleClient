@@ -84,20 +84,22 @@ void Textfield::update(Point<int16_t> parent) {
 
 void Textfield::set_state(State st) {
     if (state_ != st) {
+        bool was_focused = (state_ == State::FOCUSED);
         state_ = st;
 
         if (state_ != State::DISABLED) {
             elapsed_ = 0;
             show_marker_ = true;
-        } else {
-            UI::get().remove_textfield();
         }
 
         if (state_ == State::FOCUSED) {
-            glfmSetKeyboardVisible(Window::get().get_display(), true);
             UI::get().focus_textfield(this);
-        } else {
-            glfmSetKeyboardVisible(Window::get().get_display(), false);
+            Window::get().set_keyboard_visible(true);
+        } else if (was_focused) {
+            UI::get().clear_focused_textfield(this);
+            if (!UI::get().has_focused_textfield()) {
+                Window::get().set_keyboard_visible(false);
+            }
         }
     }
 }

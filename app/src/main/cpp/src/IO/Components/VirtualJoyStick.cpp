@@ -55,7 +55,8 @@ namespace ms {
                 } else {
                     UI::get().send_key(GLFMKeyCodeArrowRight, true);
                 }
-            } else if (current_phase == GLFMTouchPhaseEnded) {
+            } else if (current_phase == GLFMTouchPhaseEnded
+                       || current_phase == GLFMTouchPhaseCancelled) {
                 UI::get().remove_touch_phase(bind_touch_id_);
                 bind_touch_id_ = -1;
                 UI::get().send_key(GLFMKeyCodeArrowDown, false);
@@ -88,7 +89,8 @@ namespace ms {
             return false;
         }
 
-        if (touchInfo.phase == GLFMTouchPhaseEnded) {
+        if (touchInfo.phase == GLFMTouchPhaseEnded
+            || touchInfo.phase == GLFMTouchPhaseCancelled) {
             steering_id_ = -1;
             return dragging_;
         }

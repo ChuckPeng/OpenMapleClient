@@ -152,6 +152,7 @@ namespace ms {
         text_actions_[GLFMKeyCodeSpace] = KeyAction::Id::SPACE;
         text_actions_[GLFMKeyCodeTab] = KeyAction::Id::TAB;
         text_actions_[GLFMKeyCodeEscape] = KeyAction::Id::ESCAPE;
+        text_actions_[GLFMKeyCodeNavigationBack] = KeyAction::Id::ESCAPE;
         text_actions_[GLFMKeyCodeHome] = KeyAction::Id::HOME;
         text_actions_[GLFMKeyCodeEnd] = KeyAction::Id::END;
         text_actions_[GLFMKeyCodeDelete] = KeyAction::Id::DELETE;

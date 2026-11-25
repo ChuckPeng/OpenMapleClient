@@ -68,6 +68,8 @@ namespace ms {
 
         GLFMDisplay* get_display();
 
+        void set_keyboard_visible(bool visible);
+
     private:
         void update_opc();
 

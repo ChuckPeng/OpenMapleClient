@@ -109,8 +109,7 @@ UIChatBar::UIChatBar() : UIDragElement<PosCHAT>(Point<int16_t>(410, -5)) {
         Color::Name::WHITE,
         Rectangle<int16_t>(Point<int16_t>(62, -9), Point<int16_t>(330, 8)),
         0);
-    chatfield_.set_state(is_chat_open_ ? Textfield::State::NORMAL
-                                       : Textfield::State::DISABLED);
+    chatfield_.set_state(Textfield::State::DISABLED);
 
     chatfield_.set_enter_callback([&](std::string msg) {
         if (!msg.empty()) {
@@ -123,14 +122,12 @@ UIChatBar::UIChatBar() : UIDragElement<PosCHAT>(Point<int16_t>(410, -5)) {
 
                 last_entered_.push_back(msg);
                 last_pos_ = last_entered_.size();
-            } else {
-                toggle_chatfield();
             }
 
             chatfield_.change_text("");
-        } else {
-            toggle_chatfield();
         }
+
+        toggle_chatfield(false);
     });
 
     chatfield_.set_key_callback(KeyAction::Id::UP, [&]() {
@@ -298,9 +295,17 @@ bool UIChatBar::is_in_range(Point<int16_t> cursorpos) const {
 
 Cursor::State UIChatBar::send_cursor(bool clicking, Point<int16_t> cursorpos) {
     if (is_chat_open_) {
-        if (Cursor::State new_state =
-                chatfield_.send_cursor(cursorpos, clicking)) {
-            return new_state;
+        if (is_chatfield_open_) {
+            if (Cursor::State new_state =
+                    chatfield_.send_cursor(cursorpos, clicking)) {
+                return new_state;
+            }
+        } else if (clicking
+                   && Rectangle<int16_t>(position_ + Point<int16_t>(62, -9),
+                                         position_ + Point<int16_t>(330, 8))
+                          .contains(cursorpos)) {
+            toggle_chatfield(true);
+            return Cursor::State::CLICKING;
         }
 
         return check_drag_top(clicking, cursorpos);
@@ -470,7 +475,7 @@ void UIChatBar::toggle_chat(bool chat_open) {
     is_chat_open_ = chat_open;
 
     if (!is_chat_open_ && is_chatfield_open_) {
-        toggle_chatfield();
+        toggle_chatfield(false);
     }
 
     buttons_[Buttons::BT_OPEN_CHAT]->set_active(!chat_open);
@@ -484,12 +489,11 @@ void UIChatBar::toggle_chat(bool chat_open) {
 }
 
 void UIChatBar::toggle_chatfield() {
-    is_chatfield_open_ = !is_chatfield_open_;
-    toggle_chatfield(is_chatfield_open_);
+    toggle_chatfield(!is_chatfield_open_);
 }
 
 void UIChatBar::toggle_chatfield(bool chatfield_open) {
-    chatfield_open = chatfield_open;
+    is_chatfield_open_ = chatfield_open;
 
     toggle_chat(chatfield_open);
 
@@ -500,8 +504,6 @@ void UIChatBar::toggle_chatfield(bool chatfield_open) {
         buttons_[Buttons::BT_CHAT_TARGET]->set_active(true);
 
         chatfield_.set_state(Textfield::State::FOCUSED);
-
-        // dimension.shift_y(get_chatbar_height());
     } else {
         buttons_[Buttons::BT_CHAT]->set_active(false);
         buttons_[Buttons::BT_HELP]->set_active(false);
@@ -510,8 +512,23 @@ void UIChatBar::toggle_chatfield(bool chatfield_open) {
 
         chatfield_.set_state(Textfield::State::DISABLED);
         chatfield_.change_text("");
+    }
+}
 
-        // dimension.set_y(DIMENSION_Y_);
+void UIChatBar::on_ime_hidden() {
+    if (!is_chatfield_open_) {
+        if (chatfield_.get_state() == Textfield::State::FOCUSED) {
+            chatfield_.set_state(Textfield::State::DISABLED);
+        }
+        return;
+    }
+
+    if (chatfield_.empty()) {
+        toggle_chatfield(false);
+    } else if (chatfield_.get_state() == Textfield::State::FOCUSED) {
+        // Keep any unsent draft visible, but release keyboard focus so the
+        // joystick and arrow keys move the character again.
+        chatfield_.set_state(Textfield::State::NORMAL);
     }
 }
 
@@ -527,6 +544,7 @@ Button::State UIChatBar::button_pressed(uint16_t buttonid) {
     switch (buttonid) {
         case Buttons::BT_OPEN_CHAT:
         case Buttons::BT_CLOSE_CHAT: toggle_chat(); break;
+        case Buttons::BT_CHAT: toggle_chatfield(); break;
         case Buttons::BT_TAB_0:
         case Buttons::BT_TAB_1:
         case Buttons::BT_TAB_2:

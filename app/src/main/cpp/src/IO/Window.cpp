@@ -31,7 +31,18 @@
 #include <utility>
 #include <algorithm>
 #include <cmath>
+#include <mutex>
 #include <android/log.h>
+#include <jni.h>
+
+#ifdef __ANDROID__
+namespace {
+std::mutex g_jni_mutex;
+JavaVM *g_jvm = nullptr;
+jobject g_maple_activity = nullptr;
+jmethodID g_set_ime_visible_mid = nullptr;
+}  // namespace
+#endif
 
 namespace ms {
     Window::Window() :
@@ -102,11 +113,12 @@ namespace ms {
             Point<double_t>((x - Window::get().get_offset_x()) / scale,
                             (y - Window::get().get_offset_y()) / scale);
         UI::get().set_touch_phase(touch, TouchInfo(relative_pos, phase));
+        const bool send_cursor = UI::get().should_send_cursor();
         MS_LOG_DEBUG << "touch id " << touch << " phase " << static_cast<int>(phase)
                      << " at " << x << "," << y << " -> game "
                      << relative_pos.x() << "," << relative_pos.y()
-                     << " send_cursor=" << UI::get().should_send_cursor();
-        if (UI::get().should_send_cursor()) {
+                     << " send_cursor=" << send_cursor;
+        if (send_cursor) {
             Window::get().move_cursor(x, y);
             switch (phase) {
                 case GLFMTouchPhaseHover:
@@ -162,6 +174,17 @@ namespace ms {
 
     void focus_callback(GLFMDisplay *display, bool focused) {
         UI::get().send_focus(focused);
+    }
+
+    void keyboard_visibility_callback(GLFMDisplay *display,
+                                      bool visible,
+                                      double x,
+                                      double y,
+                                      double width,
+                                      double height) {
+        MS_LOG_INFO << "Keyboard visibility changed: visible=" << visible
+                    << " frame=" << width << "x" << height;
+        UI::get().on_keyboard_visibility_changed(visible);
     }
 
     void scroll_callback(GLFMDisplay *display, double xoffset, double yoffset) {
@@ -261,6 +284,8 @@ namespace ms {
         glfmSetTouchFunc(display, mousekey_callback);
 //        glfmSetMouseWheelFunc(display, cursor_callback);
         glfmSetAppFocusFunc(display, focus_callback);
+        glfmSetKeyboardVisibilityChangedFunc(display,
+                                             keyboard_visibility_callback);
 //        glfwSetScrollCallback(pApp, scroll_callback);
         glfmSetSurfaceDestroyedFunc(display, close_callback);
 
@@ -373,4 +398,84 @@ namespace ms {
     GLFMDisplay *Window::get_display() {
         return display;
     }
+
+    void Window::set_keyboard_visible(bool visible) {
+#ifdef __ANDROID__
+        {
+            std::lock_guard<std::mutex> lock(g_jni_mutex);
+            if (g_jvm && g_maple_activity && g_set_ime_visible_mid) {
+                JNIEnv *env = nullptr;
+                bool detach = false;
+                jint res = g_jvm->GetEnv(reinterpret_cast<void **>(&env),
+                                         JNI_VERSION_1_6);
+                if (res == JNI_EDETACHED) {
+                    if (g_jvm->AttachCurrentThread(&env, nullptr) == JNI_OK) {
+                        detach = true;
+                    }
+                }
+                if (env) {
+                    env->CallVoidMethod(g_maple_activity,
+                                        g_set_ime_visible_mid,
+                                        visible ? JNI_TRUE : JNI_FALSE);
+                    if (env->ExceptionCheck()) {
+                        env->ExceptionClear();
+                    }
+                    if (detach) {
+                        g_jvm->DetachCurrentThread();
+                    }
+                    return;
+                }
+            }
+        }
+#endif
+        if (display) {
+            glfmSetKeyboardVisible(display, visible);
+        }
+    }
 }  // namespace ms
+
+#ifdef __ANDROID__
+extern "C" JNIEXPORT void JNICALL
+Java_openMapleClient_MapleActivity_nativeRegisterActivity(JNIEnv *env,
+                                                          jobject thiz) {
+    std::lock_guard<std::mutex> lock(g_jni_mutex);
+    env->GetJavaVM(&g_jvm);
+    if (g_maple_activity) {
+        env->DeleteGlobalRef(g_maple_activity);
+        g_maple_activity = nullptr;
+    }
+    g_maple_activity = env->NewGlobalRef(thiz);
+    jclass cls = env->GetObjectClass(thiz);
+    g_set_ime_visible_mid =
+            env->GetMethodID(cls, "setImeVisibleFromNative", "(Z)V");
+    env->DeleteLocalRef(cls);
+    if (env->ExceptionCheck()) {
+        env->ExceptionClear();
+        g_set_ime_visible_mid = nullptr;
+    }
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_openMapleClient_MapleActivity_nativeUnregisterActivity(
+        JNIEnv *env,
+        jobject /*thiz*/) {
+    std::lock_guard<std::mutex> lock(g_jni_mutex);
+    if (g_maple_activity) {
+        env->DeleteGlobalRef(g_maple_activity);
+        g_maple_activity = nullptr;
+    }
+    g_set_ime_visible_mid = nullptr;
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_openMapleClient_MapleActivity_nativeOnImeVisibilityChanged(
+        JNIEnv * /*env*/,
+        jobject /*thiz*/,
+        jboolean visible) {
+    const bool is_visible = (visible == JNI_TRUE);
+    MS_LOG_INFO << "Android IME visibility changed: visible=" << is_visible;
+    if (!is_visible) {
+        ms::UI::get().notify_ime_hidden_from_platform();
+    }
+}
+#endif

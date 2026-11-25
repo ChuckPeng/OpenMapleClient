@@ -15,6 +15,7 @@
 //	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 #include <functional>
 #include <iostream>
@@ -81,6 +82,14 @@ namespace ms {
 
         void remove_textfield();
 
+        void clear_focused_textfield(const Textfield *textfield);
+
+        bool has_focused_textfield() const;
+
+        void on_keyboard_visibility_changed(bool visible);
+
+        void notify_ime_hidden_from_platform();
+
         void drag_icon(Icon *icon);
 
         void add_keymapping(uint8_t no, uint8_t type, int32_t action);
@@ -145,6 +154,7 @@ namespace ms {
         bool enabled_;
         bool quitted_;
         bool caps_lock_enabled_;
+        std::atomic<bool> ime_hidden_pending_{false};
 
         std::function<void()> fn_toggle_full_screen_;
         std::function<void()> fn_set_clipboard_;

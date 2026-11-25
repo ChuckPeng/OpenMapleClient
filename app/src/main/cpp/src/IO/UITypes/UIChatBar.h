@@ -59,6 +59,8 @@ public:
 
     void toggle_chatfield(bool chatfield_open);
 
+    void on_ime_hidden();
+
     bool is_chat_open();
 
     bool is_chatfield_open();
