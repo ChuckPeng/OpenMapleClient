@@ -35,14 +35,30 @@ std::vector<UIStorage::StorageItem> read_storage_items(InPacket &recv,
     Inventory temporary;
 
     for (int i = 0; i < count; i++) {
-        auto type = InventoryType::by_value(recv.inspect_byte());
+        auto parse_type = InventoryType::by_value(recv.inspect_byte());
         int16_t slot = int16_t(i + 1);
 
-        ItemParser::parse_item(recv, type, slot, temporary);
+        ItemParser::parse_item(recv, parse_type, slot, temporary);
 
-        items.push_back({ type,
-                          temporary.get_item_id(type, slot),
-                          temporary.get_item_count(type, slot) });
+        int32_t itemid = temporary.get_item_id(parse_type, slot);
+        int16_t item_count = temporary.get_item_count(parse_type, slot);
+        InventoryType::Id real_type = InventoryType::by_item_id(itemid);
+        if (real_type == InventoryType::Id::NONE) {
+            real_type = parse_type;
+        }
+
+        std::optional<Equip> equip;
+        if (parse_type == InventoryType::Id::EQUIP) {
+            if (auto eq = temporary.get_equip(InventoryType::Id::EQUIP, slot)) {
+                equip = eq->get();
+            }
+        }
+
+        items.push_back({ real_type,
+                          itemid,
+                          item_count,
+                          int16_t(i),
+                          std::move(equip) });
     }
 
     return items;
@@ -237,7 +253,7 @@ void StorageHandler::handle(InPacket &recv) const {
         } break;
         case 0x09:    // items were taken out
         case 0x0D: {  // items were stored
-            recv.read_ubyte();  // slots
+            uint8_t slots = recv.read_ubyte();
 
             auto type = type_from_encoding(recv.read_short());
 
@@ -252,7 +268,24 @@ void StorageHandler::handle(InPacket &recv) const {
                 return;
             }
 
+            element->get().set_slots(slots);
             element->get().set_items(type, read_storage_items(recv, count));
+        } break;
+        case 0x0F: {  // storage was arranged
+            uint8_t slots = recv.read_ubyte();
+            recv.skip(11);
+            int count = recv.read_ubyte();
+
+            auto element = UI::get().get_element<UIStorage>();
+
+            if (!element) {
+                return;
+            }
+
+            UIStorage &storage = element->get();
+            storage.set_slots(slots);
+            storage.clear_items();
+            replace_storage_items(storage, read_storage_items(recv, count));
         } break;
         case 0x13: {  // the mesos of the storage changed
             recv.read_ubyte();

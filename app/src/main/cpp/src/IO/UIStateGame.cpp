@@ -440,6 +440,17 @@ namespace ms {
         }
     }
 
+    void UIStateGame::show_equip(Tooltip::Parent parent,
+                                 const Equip &equip,
+                                 int16_t key) {
+        eq_tooltip_.set_equip(equip, key);
+
+        if (key != 0) {
+            tooltip_ = eq_tooltip_;
+            tooltip_parent_ = parent;
+        }
+    }
+
     void UIStateGame::show_item(Tooltip::Parent parent, int32_t itemid) {
         it_tooltip_.set_item(itemid);
 

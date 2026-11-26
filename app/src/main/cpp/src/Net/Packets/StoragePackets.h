@@ -23,7 +23,13 @@ namespace ms {
 // Opcode: STORAGE(62)
 class StoragePacket : public OutPacket {
 public:
-    enum Mode : int8_t { TAKE_OUT = 4, STORE = 5, MESO = 7, CLOSE = 8 };
+    enum Mode : int8_t {
+        TAKE_OUT = 4,
+        STORE = 5,
+        ARRANGE = 6,
+        MESO = 7,
+        CLOSE = 8
+    };
 
     explicit StoragePacket(Mode mode) :
         OutPacket(OutPacket::Opcode::STORAGE) {

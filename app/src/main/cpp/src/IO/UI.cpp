@@ -144,9 +144,10 @@ namespace ms {
         MS_LOG_DEBUG << "UI::send_cursor pressed=" << pressed
                      << " enabled=" << enabled_ << " pos=" << cursorpos.x() << ","
                      << cursorpos.y() << " state=" << cursorstate;
+        const uint64_t focus_gen = focus_generation_;
         send_cursor(cursorpos, cursorstate);
 
-        if (focused_text_field_ && pressed) {
+        if (focused_text_field_ && pressed && focus_generation_ == focus_gen) {
             Cursor::State tstate =
                     focused_text_field_->get().send_cursor(cursorpos, pressed);
 
@@ -334,6 +335,7 @@ namespace ms {
                     types.emplace_back(UIElement::Type::SKILL_BOOK);
                     types.emplace_back(UIElement::Type::QUEST_LOG);
                     types.emplace_back(UIElement::Type::USER_LIST);
+                    types.emplace_back(UIElement::Type::STORAGE);
                 }
 
                 if (!types.empty()) {
@@ -400,6 +402,7 @@ namespace ms {
                 focused_text_field_ ? &focused_text_field_->get() : nullptr;
 
         if (tofocus) {
+            ++focus_generation_;
             ime_hidden_pending_.store(false, std::memory_order_release);
             focused_text_field_ = *tofocus;
         } else {
@@ -455,6 +458,12 @@ namespace ms {
 
     void UI::show_equip(Tooltip::Parent parent, int16_t slot) {
         state_->show_equip(parent, slot);
+    }
+
+    void UI::show_equip(Tooltip::Parent parent,
+                        const Equip &equip,
+                        int16_t key) {
+        state_->show_equip(parent, equip, key);
     }
 
     void UI::show_item(Tooltip::Parent parent, int32_t item_id) {

@@ -29,11 +29,21 @@ public:
 
     void set_equip(Tooltip::Parent parent, int16_t invpos);
 
+    void set_equip(const Equip &equip, int16_t cache_key);
+
     void draw(Point<int16_t> position) const override;
 
     void draw_preview(Point<int16_t> position) const;
 
 private:
+    void populate_preview(int32_t item_id,
+                          const class Inventory &inventory,
+                          const class CharStats &stats);
+
+    void populate_main(const Equip &equip, const class CharStats &stats);
+
+    Tooltip::Parent cached_parent_;
+    int32_t cached_item_id_;
     int16_t inv_pos_;
     int16_t inv_pos_preview_;
     int16_t height_;

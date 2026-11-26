@@ -98,6 +98,10 @@ namespace ms {
 
         void show_equip(Tooltip::Parent parent, int16_t slot);
 
+        void show_equip(Tooltip::Parent parent,
+                        const class Equip &equip,
+                        int16_t key);
+
         void show_item(Tooltip::Parent parent, int32_t item_id);
 
         void show_skill(Tooltip::Parent parent,
@@ -154,6 +158,7 @@ namespace ms {
         bool enabled_;
         bool quitted_;
         bool caps_lock_enabled_;
+        uint64_t focus_generation_{0};
         std::atomic<bool> ime_hidden_pending_{false};
 
         std::function<void()> fn_toggle_full_screen_;

@@ -461,7 +461,10 @@ enum Opcode : uint16_t {
     FAMILY_INFO_RESULT = 95,
     FAMILY_PRIVILEGE_LIST = 100,
     ADMIN_RESULT = 144,
+    FIELD_OBSTACLE_ONOFF_LIST = 140,
     QUICKSLOT_INIT = 159,
+    LOCK_UI = 221,
+    DISABLE_UI = 222,
     AUTO_HP_POT = 336,
     AUTO_MP_POT = 337
 };
@@ -561,8 +564,11 @@ PacketSwitch::PacketSwitch() {
     // TODO: New handlers, they need coded and moved to a proper file.
     emplace<CHECK_SPW_RESULT, CheckSpwResultHandler>();
     emplace<FIELD_EFFECT, FieldEffectHandler>();
+    emplace<FIELD_OBSTACLE_ONOFF_LIST, FieldObstacleOnOffListHandler>();
     emplace<SET_GENDER, SetGenderHandler>();
     emplace<QUICKSLOT_INIT, QuickslotInitHandler>();
+    emplace<LOCK_UI, LockUiHandler>();
+    emplace<DISABLE_UI, DisableUiHandler>();
     emplace<AUTO_HP_POT, AutoPotHandler>();
     emplace<AUTO_MP_POT, AutoPotHandler>();
     emplace<BUDDYLIST, IgnoredPacketHandler>();

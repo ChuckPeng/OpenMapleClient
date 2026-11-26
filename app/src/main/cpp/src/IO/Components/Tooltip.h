@@ -35,7 +35,8 @@ public:
         TEXT,
         KEY_CONFIG,
         WORLD_MAP,
-        MINI_MAP
+        MINI_MAP,
+        STORAGE
     };
 
     virtual ~Tooltip() = default;

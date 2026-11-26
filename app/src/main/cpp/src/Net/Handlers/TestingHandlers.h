@@ -58,6 +58,24 @@ class AutoPotHandler : public PacketHandler {
     void handle(InPacket &recv) const override;
 };
 
+// Map obstacle animation states sent on entering a map
+// Opcode: FIELD_OBSTACLE_ONOFF_LIST(140)
+class FieldObstacleOnOffListHandler : public PacketHandler {
+    void handle(InPacket &recv) const override;
+};
+
+// Tutorial UI lock toggle
+// Opcode: LOCK_UI(221)
+class LockUiHandler : public PacketHandler {
+    void handle(InPacket &recv) const override;
+};
+
+// Tutorial UI disable toggle
+// Opcode: DISABLE_UI(222)
+class DisableUiHandler : public PacketHandler {
+    void handle(InPacket &recv) const override;
+};
+
 // Packets of systems the client does not show yet
 // Opcodes: BUDDYLIST(63), FAMILY_INFO_RESULT(95), FAMILY_PRIVILEGE_LIST(100),
 //          ADMIN_RESULT(144)

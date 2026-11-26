@@ -97,6 +97,23 @@ void AutoPotHandler::handle(InPacket &recv) const {
     MS_LOG_DEBUG << "auto pot item=" << itemid;
 }
 
+void FieldObstacleOnOffListHandler::handle(InPacket &recv) const {
+    int32_t count = recv.read_int();
+
+    for (int32_t i = 0; i < count; ++i) {
+        recv.read_string();
+        recv.read_int();
+    }
+}
+
+void LockUiHandler::handle(InPacket &recv) const {
+    recv.read_bool();
+}
+
+void DisableUiHandler::handle(InPacket &recv) const {
+    recv.read_bool();
+}
+
 void IgnoredPacketHandler::handle(InPacket &recv) const {
     recv.skip(recv.length());
 }

@@ -159,12 +159,18 @@ void UIYesNo::draw(float alpha) const {
 }
 
 void UIYesNo::send_key(int32_t keycode, bool pressed, bool escape) {
+    if (!pressed) {
+        return;
+    }
+
     if (keycode == KeyAction::Id::RETURN) {
-        yesno_handler_(true);
+        auto handler = yesno_handler_;
         deactivate();
+        handler(true);
     } else if (escape) {
-        yesno_handler_(false);
+        auto handler = yesno_handler_;
         deactivate();
+        handler(false);
     }
 }
 
@@ -187,7 +193,9 @@ UIEnterNumber::UIEnterNumber(std::string message,
                              std::function<void(int32_t)> nh,
                              int32_t m,
                              int32_t quantity) :
-    UINotice(std::move(message), NoticeType::ENTER_NUMBER) {
+    UINotice(message, NoticeType::ENTER_NUMBER),
+    message_(std::move(message)),
+    default_quantity_(quantity) {
     numhandler = std::move(nh);
     max = m;
 
@@ -209,9 +217,10 @@ UIEnterNumber::UIEnterNumber(std::string message,
     numfield.change_text(std::to_string(quantity));
 
     numfield.set_enter_callback(
-        [&](std::string numstr) { handlestring(std::move(numstr)); });
+        [this](std::string numstr) { handlestring(numstr); });
 
-    numfield.set_key_callback(KeyAction::Id::ESCAPE, [&]() { deactivate(); });
+    numfield.set_key_callback(KeyAction::Id::ESCAPE,
+                              [this]() { close_dialog(); });
 
     numfield.set_state(Textfield::State::FOCUSED);
 }
@@ -243,11 +252,14 @@ Cursor::State UIEnterNumber::send_cursor(bool clicked,
 }
 
 void UIEnterNumber::send_key(int32_t keycode, bool pressed, bool escape) {
+    if (!pressed) {
+        return;
+    }
+
     if (keycode == KeyAction::Id::RETURN) {
         handlestring(numfield.get_text());
-        deactivate();
     } else if (escape) {
-        deactivate();
+        close_dialog();
     }
 }
 
@@ -258,48 +270,72 @@ UIElement::Type UIEnterNumber::get_type() const {
 Button::State UIEnterNumber::button_pressed(uint16_t buttonid) {
     switch (buttonid) {
         case Buttons::OK: handlestring(numfield.get_text()); break;
-        case Buttons::CANCEL: deactivate(); break;
+        case Buttons::CANCEL: close_dialog(); break;
     }
 
     return Button::State::NORMAL;
 }
 
-void UIEnterNumber::handlestring(const std::string &numstr) {
-    int num = -1;
-    bool has_only_digits =
-        (numstr.find_first_not_of("0123456789") == std::string::npos);
+void UIEnterNumber::close_dialog() {
+    numfield.set_state(Textfield::State::NORMAL);
+    deactivate();
+}
 
-    auto okhandler = [&](bool) {
-        numfield.set_state(Textfield::State::FOCUSED);
-        buttons_[Buttons::OK]->set_state(Button::State::NORMAL);
+void UIEnterNumber::handlestring(const std::string &numstr) {
+    bool has_only_digits = !numstr.empty()
+                           && (numstr.find_first_not_of("0123456789")
+                               == std::string::npos);
+
+    auto reopen = [msg = message_,
+                   handler = numhandler,
+                   max_val = max,
+                   def_qty = default_quantity_](bool) {
+        UI::get().emplace<UIEnterNumber>(msg, handler, max_val, def_qty);
     };
 
     if (!has_only_digits) {
-        numfield.set_state(Textfield::State::DISABLED);
-        UI::get().emplace<UIOk>("Only numbers are allowed.", okhandler);
+        numfield.set_state(Textfield::State::NORMAL);
+        UI::get().emplace<UIOk>("Only numbers are allowed.", reopen);
         return;
     }
-    num = std::stoi(numstr);
 
-    if (num < 1) {
-        numfield.set_state(Textfield::State::DISABLED);
-        UI::get().emplace<UIOk>(
-            "You may only enter a number equal to or higher than 1.",
-            okhandler);
-        return;
-    }
-    if (num > max) {
-        numfield.set_state(Textfield::State::DISABLED);
+    int64_t parsed = 0;
+
+    try {
+        parsed = std::stoll(numstr);
+    } catch (const std::exception &) {
+        numfield.set_state(Textfield::State::NORMAL);
         UI::get().emplace<UIOk>(
             "You may only enter a number equal to or lower than "
                 + std::to_string(max) + ".",
-            okhandler);
+            reopen);
         return;
     }
-    numhandler(num);
-    deactivate();
 
+    if (parsed < 1) {
+        numfield.set_state(Textfield::State::NORMAL);
+        UI::get().emplace<UIOk>(
+            "You may only enter a number equal to or higher than 1.",
+            reopen);
+        return;
+    }
+
+    if (parsed > max) {
+        numfield.set_state(Textfield::State::NORMAL);
+        UI::get().emplace<UIOk>(
+            "You may only enter a number equal to or lower than "
+                + std::to_string(max) + ".",
+            reopen);
+        return;
+    }
+
+    auto handler = numhandler;
     buttons_[Buttons::OK]->set_state(Button::State::NORMAL);
+    close_dialog();
+
+    if (handler) {
+        handler(static_cast<int32_t>(parsed));
+    }
 }
 
 UIOk::UIOk(std::string message, std::function<void(bool ok)> oh) :
@@ -318,13 +354,21 @@ void UIOk::draw(float alpha) const {
 }
 
 void UIOk::send_key(int32_t keycode, bool pressed, bool escape) {
-    if (pressed) {
-        if (keycode == KeyAction::Id::RETURN) {
-            okhandler_(true);
-            deactivate();
-        } else if (escape) {
-            okhandler_(false);
-            deactivate();
+    if (!pressed) {
+        return;
+    }
+
+    if (keycode == KeyAction::Id::RETURN) {
+        auto handler = okhandler_;
+        deactivate();
+        if (handler) {
+            handler(true);
+        }
+    } else if (escape) {
+        auto handler = okhandler_;
+        deactivate();
+        if (handler) {
+            handler(false);
         }
     }
 }

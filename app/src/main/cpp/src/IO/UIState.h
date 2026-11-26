@@ -59,6 +59,8 @@ public:
 
     virtual void show_equip(Tooltip::Parent parent, int16_t slot) = 0;
 
+    virtual void show_equip(Tooltip::Parent, const class Equip &, int16_t) {}
+
     virtual void show_item(Tooltip::Parent parent, int32_t itemid) = 0;
 
     virtual void show_skill(Tooltip::Parent parent,

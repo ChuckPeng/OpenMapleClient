@@ -96,17 +96,20 @@ EquipTooltip::EquipTooltip() {
     jobs_[true][4] = Equip["Job"]["enable"]["4"];
     jobs_[true][5] = Equip["Job"]["enable"]["5"];
 
+    cached_parent_ = Tooltip::Parent::NONE;
+    cached_item_id_ = 0;
     inv_pos_ = 0;
     inv_pos_preview_ = 0;
 }
 
 void EquipTooltip::set_equip(Tooltip::Parent parent, int16_t ivp) {
-    if (inv_pos_ == ivp) {
+    if (parent == Tooltip::Parent::NONE || ivp == 0) {
+        cached_parent_ = Tooltip::Parent::NONE;
+        cached_item_id_ = 0;
+        inv_pos_ = 0;
+        inv_pos_preview_ = 0;
         return;
     }
-
-    inv_pos_ = ivp;
-    inv_pos_preview_ = 0;
 
     const Player &player = Stage::get().get_player();
 
@@ -114,7 +117,8 @@ void EquipTooltip::set_equip(Tooltip::Parent parent, int16_t ivp) {
 
     switch (parent) {
         case Tooltip::Parent::ITEM_INVENTORY:
-        case Tooltip::Parent::SHOP: invtype = InventoryType::Id::EQUIP; break;
+        case Tooltip::Parent::SHOP:
+        case Tooltip::Parent::STORAGE: invtype = InventoryType::Id::EQUIP; break;
         case Tooltip::Parent::EQUIP_INVENTORY:
             invtype = InventoryType::Id::EQUIPPED;
             break;
@@ -122,267 +126,316 @@ void EquipTooltip::set_equip(Tooltip::Parent parent, int16_t ivp) {
     }
 
     const Inventory &inventory = player.get_inventory();
-    auto oequip = inventory.get_equip(invtype, inv_pos_);
-    const CharStats &stats = player.get_stats();
-
-    if (invtype == InventoryType::Id::EQUIP) {
-        const int32_t item_id = oequip->get().get_item_id();
-        const EquipData &equipdata = EquipData::get(item_id);
-        EquipSlot::Id eqslot = equipdata.get_eqslot();
-
-        if (inventory.has_equipped(eqslot)) {
-            auto eequip =
-                inventory.get_equip(InventoryType::Id::EQUIPPED, eqslot);
-
-            if (eequip) {
-                const Equip &equip = *eequip;
-
-                int32_t item_id = equip.get_item_id();
-
-                const EquipData &equipdata = EquipData::get(item_id);
-                const ItemData &itemdata = equipdata.get_itemdata();
-
-                height_preview_ = 540;
-
-                item_icon_preview_ = itemdata.get_icon(false);
-
-                for (auto &ms : requirements_) {
-                    can_equip_preview_[ms] =
-                        stats.get_stat(ms) >= equipdata.get_reqstat(ms);
-                    std::string reqstr =
-                        std::to_string(equipdata.get_reqstat(ms));
-
-                    if (ms != MapleStat::Id::LEVEL) {
-                        reqstr.insert(0, 3 - reqstr.size(), '0');
-                    }
-
-                    req_stat_strings_preview_[ms] = reqstr;
-                }
-
-                okjobs_preview_.clear();
-
-                switch (equipdata.get_reqstat(MapleStat::Id::JOB)) {
-                    case 0:
-                        okjobs_preview_.push_back(0);
-                        okjobs_preview_.push_back(1);
-                        okjobs_preview_.push_back(2);
-                        okjobs_preview_.push_back(3);
-                        okjobs_preview_.push_back(4);
-                        okjobs_preview_.push_back(5);
-                        can_equip_preview_[MapleStat::Id::JOB] = true;
-                        break;
-                    case 1:
-                        okjobs_preview_.push_back(1);
-                        can_equip_preview_[MapleStat::Id::JOB] =
-                            (stats.get_stat(MapleStat::Id::JOB) / 100 == 1)
-                            || (stats.get_stat(MapleStat::Id::JOB) / 100 >= 20);
-                        break;
-                    case 2:
-                        okjobs_preview_.push_back(2);
-                        can_equip_preview_[MapleStat::Id::JOB] =
-                            stats.get_stat(MapleStat::Id::JOB) / 100 == 2;
-                        break;
-                    case 4:
-                        okjobs_preview_.push_back(3);
-                        can_equip_preview_[MapleStat::Id::JOB] =
-                            stats.get_stat(MapleStat::Id::JOB) / 100 == 3;
-                        break;
-                    case 8:
-                        okjobs_preview_.push_back(4);
-                        can_equip_preview_[MapleStat::Id::JOB] =
-                            stats.get_stat(MapleStat::Id::JOB) / 100 == 4;
-                        break;
-                    case 16:
-                        okjobs_preview_.push_back(5);
-                        can_equip_preview_[MapleStat::Id::JOB] =
-                            stats.get_stat(MapleStat::Id::JOB) / 100 == 5;
-                        break;
-                    default:
-                        can_equip_preview_[MapleStat::Id::JOB] = false;
-                        break;
-                }
-
-                prank_preview_ = equip.get_potrank();
-
-                switch (prank_preview_) {
-                    case Equip::Potential::POT_HIDDEN:
-                        potflag_preview_ = Text(Text::Font::A11M,
-                                                Text::Alignment::CENTER,
-                                                Color::Name::RED);
-                        potflag_preview_.change_text("(Hidden Potential)");
-                        break;
-                    case Equip::Potential::POT_RARE:
-                        potflag_preview_ = Text(Text::Font::A11M,
-                                                Text::Alignment::CENTER,
-                                                Color::Name::WHITE);
-                        potflag_preview_.change_text("(Rare Item)");
-                        break;
-                    case Equip::Potential::POT_EPIC:
-                        potflag_preview_ = Text(Text::Font::A11M,
-                                                Text::Alignment::CENTER,
-                                                Color::Name::WHITE);
-                        potflag_preview_.change_text("(Epic Item)");
-                        break;
-                    case Equip::Potential::POT_UNIQUE:
-                        potflag_preview_ = Text(Text::Font::A11M,
-                                                Text::Alignment::CENTER,
-                                                Color::Name::WHITE);
-                        potflag_preview_.change_text("(Unique Item)");
-                        break;
-                    case Equip::Potential::POT_LEGENDARY:
-                        potflag_preview_ = Text(Text::Font::A11M,
-                                                Text::Alignment::CENTER,
-                                                Color::Name::WHITE);
-                        potflag_preview_.change_text("(Legendary Item)");
-                        break;
-                    default: height_preview_ -= 16; break;
-                }
-
-                Color::Name namecolor;
-
-                switch (equip.get_quality()) {
-                    case EquipQuality::Id::GREY:
-                        namecolor = Color::Name::LIGHTGREY;
-                        break;
-                    case EquipQuality::Id::ORANGE:
-                        namecolor = Color::Name::ORANGE;
-                        break;
-                    case EquipQuality::Id::BLUE:
-                        namecolor = Color::Name::MEDIUMBLUE;
-                        break;
-                    case EquipQuality::Id::VIOLET:
-                        namecolor = Color::Name::VIOLET;
-                        break;
-                    case EquipQuality::Id::GOLD:
-                        namecolor = Color::Name::YELLOW;
-                        break;
-                    default: namecolor = Color::Name::WHITE; break;
-                }
-
-                std::string namestr = itemdata.get_name();
-                const int8_t reqGender = itemdata.get_gender();
-                const bool female = stats.get_female();
-
-                switch (reqGender) {
-                    case 0:  // Male
-                        namestr += " (M)";
-                        break;
-                    case 1:  // Female
-                        namestr += " (F)";
-                        break;
-                    case 2:  // Unisex
-                    default: break;
-                }
-
-                if (equip.get_level() > 0) {
-                    namestr.append(" (+");
-                    namestr.append(std::to_string(equip.get_level()));
-                    namestr.append(")");
-                }
-
-                name_preview_ = Text(Text::Font::A12B,
-                                     Text::Alignment::LEFT,
-                                     namecolor,
-                                     namestr,
-                                     400);
-                atkinc_preview_ = Text(Text::Font::A11M,
-                                       Text::Alignment::RIGHT,
-                                       Color::Name::DUSTYGRAY,
-                                       "ATT INCREASE");
-
-                std::string desctext = itemdata.get_desc();
-                has_desc_preview_ = !desctext.empty();
-
-                if (has_desc_preview_) {
-                    desc_preview_ = Text(Text::Font::A12M,
-                                         Text::Alignment::LEFT,
-                                         Color::Name::WHITE,
-                                         desctext,
-                                         250);
-                    height_preview_ += desc_preview_.height() + 10;
-                }
-
-                category_preview_ = Text(Text::Font::A11M,
-                                         Text::Alignment::LEFT,
-                                         Color::Name::WHITE,
-                                         "Type: " + equipdata.get_type());
-
-                is_weapon_preview_ = equipdata.is_weapon();
-
-                if (is_weapon_preview_) {
-                    const WeaponData &weapon = WeaponData::get(item_id);
-                    wepspeed_preview_ =
-                        Text(Text::Font::A11M,
-                             Text::Alignment::LEFT,
-                             Color::Name::WHITE,
-                             "Attack Speed: " + weapon.getspeedstring());
-                } else {
-                    height_preview_ -= 18;
-                }
-
-                has_slots_preview_ =
-                    (equip.get_slots() > 0) || (equip.get_level() > 0);
-
-                if (has_slots_preview_) {
-                    slots_preview_ =
-                        Text(Text::Font::A11M,
-                             Text::Alignment::LEFT,
-                             Color::Name::WHITE,
-                             "Remaining Enhancements: "
-                                 + std::to_string(equip.get_slots()));
-
-                    std::string vicious = std::to_string(equip.get_vicious());
-
-                    if (equip.get_vicious() > 1) {
-                        vicious.append(" (MAX) ");
-                    }
-
-                    hammers_preview_ = Text(Text::Font::A11M,
-                                            Text::Alignment::LEFT,
-                                            Color::Name::WHITE,
-                                            "Hammers Applied: " + vicious);
-                } else {
-                    height_preview_ -= 36;
-                }
-
-                stat_labels_preview_.clear();
-
-                for (EquipStat::Id es = EquipStat::Id::STR;
-                     es <= EquipStat::Id::JUMP;
-                     es = static_cast<EquipStat::Id>(es + 1)) {
-                    if (equip.get_stat(es) > 0) {
-                        int16_t delta =
-                            equip.get_stat(es) - equipdata.get_defstat(es);
-                        std::string statstr =
-                            std::to_string(equip.get_stat(es));
-
-                        if (delta != 0) {
-                            statstr.append(" (");
-                            statstr.append((delta < 0) ? "-" : "+");
-                            statstr.append(std::to_string(abs(delta)) + ")");
-                        }
-
-                        stat_labels_preview_[es] = Text(
-                            Text::Font::A11M,
-                            Text::Alignment::LEFT,
-                            Color::Name::WHITE,
-                            EquipStat::names[es] + std::string(": ") + statstr);
-                    } else {
-                        height_preview_ -= 18;
-                    }
-                }
-
-                inv_pos_preview_ = 1;
-            }
-        }
-    }
+    auto oequip = inventory.get_equip(invtype, ivp);
 
     if (!oequip) {
+        cached_parent_ = Tooltip::Parent::NONE;
+        cached_item_id_ = 0;
+        inv_pos_ = 0;
+        inv_pos_preview_ = 0;
         return;
     }
 
     const Equip &equip = *oequip;
+    const int32_t item_id = equip.get_item_id();
 
+    if (inv_pos_ == ivp && cached_parent_ == parent
+        && cached_item_id_ == item_id) {
+        return;
+    }
+
+    cached_parent_ = parent;
+    cached_item_id_ = item_id;
+    inv_pos_ = ivp;
+    inv_pos_preview_ = 0;
+
+    const CharStats &stats = player.get_stats();
+
+    if (invtype == InventoryType::Id::EQUIP) {
+        populate_preview(item_id, inventory, stats);
+    }
+
+    populate_main(equip, stats);
+}
+
+void EquipTooltip::set_equip(const Equip &equip, int16_t cache_key) {
+    if (cache_key == 0) {
+        cached_parent_ = Tooltip::Parent::NONE;
+        cached_item_id_ = 0;
+        inv_pos_ = 0;
+        inv_pos_preview_ = 0;
+        return;
+    }
+
+    const int32_t item_id = equip.get_item_id();
+
+    if (inv_pos_ == cache_key && cached_parent_ == Tooltip::Parent::STORAGE
+        && cached_item_id_ == item_id) {
+        return;
+    }
+
+    cached_parent_ = Tooltip::Parent::STORAGE;
+    cached_item_id_ = item_id;
+    inv_pos_ = cache_key;
+    inv_pos_preview_ = 0;
+
+    const Player &player = Stage::get().get_player();
+    populate_preview(item_id, player.get_inventory(), player.get_stats());
+    populate_main(equip, player.get_stats());
+}
+
+void EquipTooltip::populate_preview(int32_t item_id,
+                                    const Inventory &inventory,
+                                    const CharStats &stats) {
+    const EquipData &equipdata = EquipData::get(item_id);
+    EquipSlot::Id eqslot = equipdata.get_eqslot();
+
+    if (inventory.has_equipped(eqslot)) {
+        auto eequip = inventory.get_equip(InventoryType::Id::EQUIPPED, eqslot);
+
+        if (eequip) {
+            const Equip &equip = *eequip;
+
+            int32_t equipped_id = equip.get_item_id();
+
+            const EquipData &equipped_data = EquipData::get(equipped_id);
+            const ItemData &itemdata = equipped_data.get_itemdata();
+
+            height_preview_ = 540;
+
+            item_icon_preview_ = itemdata.get_icon(false);
+
+            for (auto &ms : requirements_) {
+                can_equip_preview_[ms] =
+                    stats.get_stat(ms) >= equipped_data.get_reqstat(ms);
+                std::string reqstr =
+                    std::to_string(equipped_data.get_reqstat(ms));
+
+                if (ms != MapleStat::Id::LEVEL) {
+                    reqstr.insert(0, 3 - reqstr.size(), '0');
+                }
+
+                req_stat_strings_preview_[ms] = reqstr;
+            }
+
+            okjobs_preview_.clear();
+
+            switch (equipped_data.get_reqstat(MapleStat::Id::JOB)) {
+                case 0:
+                    okjobs_preview_.push_back(0);
+                    okjobs_preview_.push_back(1);
+                    okjobs_preview_.push_back(2);
+                    okjobs_preview_.push_back(3);
+                    okjobs_preview_.push_back(4);
+                    okjobs_preview_.push_back(5);
+                    can_equip_preview_[MapleStat::Id::JOB] = true;
+                    break;
+                case 1:
+                    okjobs_preview_.push_back(1);
+                    can_equip_preview_[MapleStat::Id::JOB] =
+                        (stats.get_stat(MapleStat::Id::JOB) / 100 == 1)
+                        || (stats.get_stat(MapleStat::Id::JOB) / 100 >= 20);
+                    break;
+                case 2:
+                    okjobs_preview_.push_back(2);
+                    can_equip_preview_[MapleStat::Id::JOB] =
+                        stats.get_stat(MapleStat::Id::JOB) / 100 == 2;
+                    break;
+                case 4:
+                    okjobs_preview_.push_back(3);
+                    can_equip_preview_[MapleStat::Id::JOB] =
+                        stats.get_stat(MapleStat::Id::JOB) / 100 == 3;
+                    break;
+                case 8:
+                    okjobs_preview_.push_back(4);
+                    can_equip_preview_[MapleStat::Id::JOB] =
+                        stats.get_stat(MapleStat::Id::JOB) / 100 == 4;
+                    break;
+                case 16:
+                    okjobs_preview_.push_back(5);
+                    can_equip_preview_[MapleStat::Id::JOB] =
+                        stats.get_stat(MapleStat::Id::JOB) / 100 == 5;
+                    break;
+                default:
+                    can_equip_preview_[MapleStat::Id::JOB] = false;
+                    break;
+            }
+
+            prank_preview_ = equip.get_potrank();
+
+            switch (prank_preview_) {
+                case Equip::Potential::POT_HIDDEN:
+                    potflag_preview_ = Text(Text::Font::A11M,
+                                            Text::Alignment::CENTER,
+                                            Color::Name::RED);
+                    potflag_preview_.change_text("(Hidden Potential)");
+                    break;
+                case Equip::Potential::POT_RARE:
+                    potflag_preview_ = Text(Text::Font::A11M,
+                                            Text::Alignment::CENTER,
+                                            Color::Name::WHITE);
+                    potflag_preview_.change_text("(Rare Item)");
+                    break;
+                case Equip::Potential::POT_EPIC:
+                    potflag_preview_ = Text(Text::Font::A11M,
+                                            Text::Alignment::CENTER,
+                                            Color::Name::WHITE);
+                    potflag_preview_.change_text("(Epic Item)");
+                    break;
+                case Equip::Potential::POT_UNIQUE:
+                    potflag_preview_ = Text(Text::Font::A11M,
+                                            Text::Alignment::CENTER,
+                                            Color::Name::WHITE);
+                    potflag_preview_.change_text("(Unique Item)");
+                    break;
+                case Equip::Potential::POT_LEGENDARY:
+                    potflag_preview_ = Text(Text::Font::A11M,
+                                            Text::Alignment::CENTER,
+                                            Color::Name::WHITE);
+                    potflag_preview_.change_text("(Legendary Item)");
+                    break;
+                default: height_preview_ -= 16; break;
+            }
+
+            Color::Name namecolor;
+
+            switch (equip.get_quality()) {
+                case EquipQuality::Id::GREY:
+                    namecolor = Color::Name::LIGHTGREY;
+                    break;
+                case EquipQuality::Id::ORANGE:
+                    namecolor = Color::Name::ORANGE;
+                    break;
+                case EquipQuality::Id::BLUE:
+                    namecolor = Color::Name::MEDIUMBLUE;
+                    break;
+                case EquipQuality::Id::VIOLET:
+                    namecolor = Color::Name::VIOLET;
+                    break;
+                case EquipQuality::Id::GOLD:
+                    namecolor = Color::Name::YELLOW;
+                    break;
+                default: namecolor = Color::Name::WHITE; break;
+            }
+
+            std::string namestr = itemdata.get_name();
+            const int8_t reqGender = itemdata.get_gender();
+
+            switch (reqGender) {
+                case 0:  // Male
+                    namestr += " (M)";
+                    break;
+                case 1:  // Female
+                    namestr += " (F)";
+                    break;
+                case 2:  // Unisex
+                default: break;
+            }
+
+            if (equip.get_level() > 0) {
+                namestr.append(" (+");
+                namestr.append(std::to_string(equip.get_level()));
+                namestr.append(")");
+            }
+
+            name_preview_ = Text(Text::Font::A12B,
+                                 Text::Alignment::LEFT,
+                                 namecolor,
+                                 namestr,
+                                 400);
+            atkinc_preview_ = Text(Text::Font::A11M,
+                                   Text::Alignment::RIGHT,
+                                   Color::Name::DUSTYGRAY,
+                                   "ATT INCREASE");
+
+            std::string desctext = itemdata.get_desc();
+            has_desc_preview_ = !desctext.empty();
+
+            if (has_desc_preview_) {
+                desc_preview_ = Text(Text::Font::A12M,
+                                     Text::Alignment::LEFT,
+                                     Color::Name::WHITE,
+                                     desctext,
+                                     250);
+                height_preview_ += desc_preview_.height() + 10;
+            }
+
+            category_preview_ = Text(Text::Font::A11M,
+                                     Text::Alignment::LEFT,
+                                     Color::Name::WHITE,
+                                     "Type: " + equipped_data.get_type());
+
+            is_weapon_preview_ = equipped_data.is_weapon();
+
+            if (is_weapon_preview_) {
+                const WeaponData &weapon = WeaponData::get(equipped_id);
+                wepspeed_preview_ =
+                    Text(Text::Font::A11M,
+                         Text::Alignment::LEFT,
+                         Color::Name::WHITE,
+                         "Attack Speed: " + weapon.getspeedstring());
+            } else {
+                height_preview_ -= 18;
+            }
+
+            has_slots_preview_ =
+                (equip.get_slots() > 0) || (equip.get_level() > 0);
+
+            if (has_slots_preview_) {
+                slots_preview_ =
+                    Text(Text::Font::A11M,
+                         Text::Alignment::LEFT,
+                         Color::Name::WHITE,
+                         "Remaining Enhancements: "
+                             + std::to_string(equip.get_slots()));
+
+                std::string vicious = std::to_string(equip.get_vicious());
+
+                if (equip.get_vicious() > 1) {
+                    vicious.append(" (MAX) ");
+                }
+
+                hammers_preview_ = Text(Text::Font::A11M,
+                                        Text::Alignment::LEFT,
+                                        Color::Name::WHITE,
+                                        "Hammers Applied: " + vicious);
+            } else {
+                height_preview_ -= 36;
+            }
+
+            stat_labels_preview_.clear();
+
+            for (EquipStat::Id es = EquipStat::Id::STR;
+                 es <= EquipStat::Id::JUMP;
+                 es = static_cast<EquipStat::Id>(es + 1)) {
+                if (equip.get_stat(es) > 0) {
+                    int16_t delta =
+                        equip.get_stat(es) - equipped_data.get_defstat(es);
+                    std::string statstr =
+                        std::to_string(equip.get_stat(es));
+
+                    if (delta != 0) {
+                        statstr.append(" (");
+                        statstr.append((delta < 0) ? "-" : "+");
+                        statstr.append(std::to_string(abs(delta)) + ")");
+                    }
+
+                    stat_labels_preview_[es] = Text(
+                        Text::Font::A11M,
+                        Text::Alignment::LEFT,
+                        Color::Name::WHITE,
+                        EquipStat::names[es] + std::string(": ") + statstr);
+                } else {
+                    height_preview_ -= 18;
+                }
+            }
+
+            inv_pos_preview_ = 1;
+        }
+    }
+}
+
+void EquipTooltip::populate_main(const Equip &equip, const CharStats &stats) {
     int32_t item_id = equip.get_item_id();
 
     const EquipData &equipdata = EquipData::get(item_id);
@@ -493,7 +546,6 @@ void EquipTooltip::set_equip(Tooltip::Parent parent, int16_t ivp) {
 
     std::string namestr = itemdata.get_name();
     const int8_t reqGender = itemdata.get_gender();
-    const bool female = stats.get_female();
 
     switch (reqGender) {
         case 0:  // Male

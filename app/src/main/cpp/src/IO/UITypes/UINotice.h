@@ -98,11 +98,15 @@ protected:
 private:
     void handlestring(const std::string &numstr);
 
+    void close_dialog();
+
     enum Buttons : int16_t { OK, CANCEL };
 
+    std::string message_;
     std::function<void(int32_t number)> numhandler;
     Textfield numfield;
     int32_t max;
+    int32_t default_quantity_;
 };
 
 class UIOk : public UINotice {
