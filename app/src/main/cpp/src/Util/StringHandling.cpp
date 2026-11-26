@@ -114,36 +114,36 @@ std::vector<uint32_t> to_utf8_vector(const std::string &text) {
     std::vector<uint32_t> vec;
 
     for (size_t i = 0; i < text.length(); i++) {
-        uint32_t val = 0;
+        uint32_t val = '?';
+        auto b0 = static_cast<uint8_t>(text[i]);
 
-        if ((uint8_t(text[i]) & uint8_t(0b11110000)) == 0b11110000) {
-            val = uint32_t(
-                (uint8_t(text[i]) & uint32_t(0b00000111)) << uint32_t(18)
-                | (uint8_t(text[i + 1]) & uint32_t(0b00111111)) << uint32_t(12)
-                | (uint8_t(text[i + 2]) & uint32_t(0b00111111)) << uint32_t(6)
-                | (uint8_t(text[i + 3]) & uint32_t(0b00111111)));
+        if ((b0 & 0b11111000u) == 0b11110000u && i + 3 < text.length()) {
+            val = uint32_t((b0 & 0b00000111u) << 18)
+                  | uint32_t((static_cast<uint8_t>(text[i + 1]) & 0b00111111u) << 12)
+                  | uint32_t((static_cast<uint8_t>(text[i + 2]) & 0b00111111u) << 6)
+                  | uint32_t(static_cast<uint8_t>(text[i + 3]) & 0b00111111u);
 
             i += 3;
-        } else if ((uint8_t(text[i]) & uint8_t(0b11100000)) == 0b11100000) {
-            uint32_t hi = uint8_t(uint8_t(text[i]) << uint8_t(4));
-            uint32_t lo1 = uint8_t(text[i + 1]) & uint8_t(0b00111111);
-            uint32_t lo0 = uint8_t(text[i + 2]) & uint8_t(0b00111111);
+        } else if ((b0 & 0b11110000u) == 0b11100000u && i + 2 < text.length()) {
+            uint32_t hi = uint8_t(b0 << 4);
+            uint32_t lo1 = static_cast<uint8_t>(text[i + 1]) & 0b00111111u;
+            uint32_t lo0 = static_cast<uint8_t>(text[i + 2]) & 0b00111111u;
 
-            val = hi << uint32_t(8);      // hi are bits 12-15
-            val |= (lo1 << uint32_t(6));  // lo1 are bits 6-11
-            val |= lo0;                   // lo0 are bits 0-5
+            val = hi << 8;
+            val |= (lo1 << 6);
+            val |= lo0;
 
             i += 2;
-        } else if ((uint8_t(text[i]) & uint8_t(0b11000000)) == 0b11000000) {
-            uint32_t hi = uint8_t(uint8_t(text[i]) << uint8_t(3));
-            uint32_t lo = uint8_t(uint8_t(text[i + 1]) & uint8_t(0b00111111));
+        } else if ((b0 & 0b11100000u) == 0b11000000u && i + 1 < text.length()) {
+            uint32_t hi = uint8_t(b0 << 3);
+            uint32_t lo = static_cast<uint8_t>(text[i + 1]) & 0b00111111u;
 
-            val = hi << uint32_t(3);  // hi are bits 6-10
-            val |= lo;                // lo are bits 0-5
+            val = hi << 3;
+            val |= lo;
 
             i += 1;
-        } else if ((uint32_t(text[i]) & uint32_t(0b10000000)) == 0) {
-            val = static_cast<uint8_t>(text[i]);  // 1 byte character
+        } else if ((b0 & 0b10000000u) == 0) {
+            val = b0;  // 1 byte character
         }
 
         vec.emplace_back(val);

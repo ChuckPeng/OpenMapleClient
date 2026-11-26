@@ -40,6 +40,8 @@ public:
 
     UIElement::Type get_type() const override;
 
+    void toggle_active() override;
+
     // Rebuilds the list after the quest log changed.
     void refresh();
 
@@ -54,12 +56,23 @@ private:
 
     void scroll_rows(bool upwards);
 
+    void update_filter_buttons();
+
+    void release_search_focus();
+
+    bool can_start_quest(int16_t qid,
+                         const nl::node &check_zero,
+                         const nl::node &info,
+                         const std::string &today_yyyymmdd) const;
+
     // Shows the detail window of the selected quest, if there is one.
     void build_detail();
 
     void clear_detail();
 
     void draw_detail(float alpha) const;
+
+    void accept();
 
     void give_up();
 
@@ -78,10 +91,13 @@ private:
         CLOSE,
         SEARCH,
         ALL_LEVEL,
+        MY_LEVEL,
         MY_LOCATION,
+        ALL_LOCATION,
         INFO_CLOSE,
         INFO_GIVEUP,
-        INFO_COMPLETE
+        INFO_COMPLETE,
+        INFO_ACCEPT
     };
 
     static constexpr int16_t ROW_HEIGHT_ = 15;
@@ -106,7 +122,14 @@ private:
     int16_t selected_;
     int16_t list_width_;
     int32_t detail_npc_;
+    bool all_levels_;
+    bool my_location_;
+    bool detail_can_start_;
     bool detail_can_complete_;
+    bool detail_auto_start_;
+    bool detail_auto_complete_;
+    bool detail_scripted_start_;
+    bool detail_scripted_end_;
     Sprite detail_backgrnd_;
     Sprite detail_backgrnd2_;
     Text detail_title_;

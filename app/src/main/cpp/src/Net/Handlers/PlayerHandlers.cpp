@@ -110,8 +110,18 @@ bool ChangeStatsHandler::handle_stat(MapleStat::Id stat, InPacket &recv) const {
             break;
         case MapleStat::Id::LEVEL:
             player.change_level(recv.read_ubyte());
+            if (auto log = UI::get().get_element<UIQuestLog>();
+                log && log->get().is_active()) {
+                log->get().refresh();
+            }
             break;
-        case MapleStat::Id::JOB: player.change_job(recv.read_ushort()); break;
+        case MapleStat::Id::JOB:
+            player.change_job(recv.read_ushort());
+            if (auto log = UI::get().get_element<UIQuestLog>();
+                log && log->get().is_active()) {
+                log->get().refresh();
+            }
+            break;
         case MapleStat::Id::HP: {
             int16_t current_hp = recv.read_short();
             player.get_stats().set_stat(stat, current_hp);

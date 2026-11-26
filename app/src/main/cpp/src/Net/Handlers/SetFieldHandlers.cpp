@@ -19,6 +19,7 @@
 #include "../../Gameplay/Stage.h"
 #include "../../IO/UI.h"
 #include "../../IO/UITypes/Login/UICharSelect.h"
+#include "../../IO/UITypes/UIQuestLog.h"
 #include "../../IO/Window.h"
 #include "../Packets/GameplayPackets.h"
 #include "Helpers/CharacterParser.h"
@@ -39,6 +40,11 @@ void SetFieldHandler::transition(int32_t mapid, uint8_t portalid) const {
         GraphicsGL::get().clear();
 
         Stage::get().load(mapid, portalid);
+
+        if (auto questlog = UI::get().get_element<UIQuestLog>();
+            questlog && questlog->get().is_active()) {
+            questlog->get().refresh();
+        }
 
         UI::get().enable();
         Timer::get().start();

@@ -18,52 +18,164 @@
 #include <nlnx/nx.hpp>
 
 #include <algorithm>
+#include <cctype>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <ctime>
+#include <functional>
+#include <limits>
 
 #include "../../Data/ItemData.h"
 #include "../../Gameplay/MapleMap/Npc.h"
 #include "../../Gameplay/Stage.h"
 #include "../../Net/Packets/QuestPackets.h"
+#include "../../Util/GameInfo.h"
+#include "../../Util/StringHandling.h"
 #include "../Components/MapleButton.h"
 #include "../UI.h"
 #include "UIChatBar.h"
 
 namespace ms {
 namespace {
-// Quest descriptions use the same inline markup as npc dialogue.
-std::string format_quest_text(const std::string &text) {
-    std::string formatted = text;
+bool has_unrenderable_glyphs(const std::string &utf8) {
+    for (uint32_t cp : string_conversion::to_utf8_vector(utf8)) {
+        if (cp < 256) {
+            continue;
+        }
+        switch (cp) {
+            case 0x2018:
+            case 0x2019:
+            case 0x201C:
+            case 0x201D:
+            case 0x2013:
+            case 0x2014:
+            case 0x2026: continue;
+            default: return true;
+        }
+    }
 
-    // #t<id># stands for the name of an item and can appear more than once.
+    return false;
+}
+
+int64_t safe_get_int(const nl::node &n, int64_t def = 0) {
+    switch (n.data_type()) {
+        case nl::node::type::integer:
+        case nl::node::type::real:
+            return n.get_integer(def);
+        case nl::node::type::string: {
+            std::string s = n.get_string();
+            if (s.empty()) {
+                return def;
+            }
+            char *end = nullptr;
+            long long v = std::strtoll(s.c_str(), &end, 10);
+            if (end == s.c_str() || *end != '\0') {
+                return def;
+            }
+            return static_cast<int64_t>(v);
+        }
+        default:
+            return def;
+    }
+}
+
+bool is_digits(const std::string &s) {
+    return !s.empty()
+           && std::all_of(s.begin(), s.end(), [](unsigned char c) {
+                  return std::isdigit(c) != 0;
+              });
+}
+
+std::string to_lower_ascii(std::string s) {
+    std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) {
+        return static_cast<char>(std::tolower(c));
+    });
+    return s;
+}
+
+std::string replace_id_tag(const std::string &input,
+                           const char *tag,
+                           const std::function<std::string(int32_t, const std::string &)> &lookup) {
+    std::string out = input;
+    const size_t tag_len = std::strlen(tag);
     size_t begin = 0;
 
-    while ((begin = formatted.find("#t", begin)) != std::string::npos) {
-        size_t end = formatted.find("#", begin + 2);
+    while ((begin = out.find(tag, begin)) != std::string::npos) {
+        size_t end = out.find('#', begin + tag_len);
 
         if (end == std::string::npos) {
             break;
         }
 
-        std::string name;
+        std::string raw = out.substr(begin + tag_len, end - begin - tag_len);
 
-        try {
-            int32_t itemid =
-                std::stoi(formatted.substr(begin + 2, end - begin - 2));
-            name = ItemData::get(itemid).get_name();
-        } catch (const std::exception &) {
-            name = "";
+        if (!is_digits(raw)) {
+            begin = end + 1;
+            continue;
         }
 
-        formatted.replace(begin, end - begin + 1, name);
-        begin += name.length();
+        std::string replacement;
+
+        try {
+            int32_t id = std::stoi(raw);
+            replacement = lookup(id, raw);
+        } catch (const std::exception &) {
+            replacement.clear();
+        }
+
+        out.replace(begin, end - begin + 1, replacement);
+        begin += replacement.length();
     }
 
-    // Tags that would need inline images or colours are dropped together with
-    // their argument instead of leaving the raw code in the sentence.
-    for (const char *tag: { "#i", "#v", "#c", "#L" }) {
-        begin = 0;
+    return out;
+}
+
+// Quest descriptions use the same inline markup as npc dialogue.
+std::string format_quest_text(const std::string &text) {
+    std::string formatted = text;
+
+    formatted.erase(
+        std::remove(formatted.begin(), formatted.end(), '\r'),
+        formatted.end());
+
+    // #h0# / #h # stand for the player's name.
+    {
+        std::string player_name = Stage::get().get_player().get_name();
+        size_t begin = 0;
+
+        while ((begin = formatted.find("#h", begin)) != std::string::npos) {
+            size_t end = formatted.find('#', begin + 2);
+
+            if (end == std::string::npos) {
+                break;
+            }
+
+            formatted.replace(begin, end - begin + 1, player_name);
+            begin += player_name.length();
+        }
+    }
+
+    formatted = replace_id_tag(formatted, "#t", [](int32_t id, const std::string &) {
+        return ItemData::get(id).get_name();
+    });
+    formatted = replace_id_tag(formatted, "#p", [](int32_t, const std::string &raw) {
+        return nl::nx::string["Npc.img"][raw]["name"].get_string();
+    });
+    formatted = replace_id_tag(formatted, "#o", [](int32_t, const std::string &raw) {
+        return nl::nx::string["Mob.img"][raw]["name"].get_string();
+    });
+    formatted = replace_id_tag(formatted, "#m", [](int32_t id, const std::string &) {
+        return NxHelper::Map::get_map_info_by_id(id).name;
+    });
+
+    // Tags that would need inline images, icons, or progress counters are
+    // dropped together with their argument instead of leaving raw markup.
+    for (const char *tag : { "#i", "#v", "#c", "#L", "#a", "#f", "#q", "#u" }) {
+        size_t begin = 0;
 
         while ((begin = formatted.find(tag, begin)) != std::string::npos) {
-            size_t end = formatted.find("#", begin + 2);
+            size_t end = formatted.find('#', begin + 2);
 
             if (end == std::string::npos) {
                 break;
@@ -73,8 +185,8 @@ std::string format_quest_text(const std::string &text) {
         }
     }
 
-    for (const char *tag: { "#b", "#r", "#k", "#n", "#e", "#g" }) {
-        begin = 0;
+    for (const char *tag : { "#b", "#r", "#k", "#n", "#e", "#g", "#d", "#m" }) {
+        size_t begin = 0;
 
         while ((begin = formatted.find(tag, begin)) != std::string::npos) {
             formatted.erase(begin, 2);
@@ -82,6 +194,114 @@ std::string format_quest_text(const std::string &text) {
     }
 
     return formatted;
+}
+
+int32_t area_for_map(int32_t map_id) {
+    if (map_id < 100000000) {
+        return 20;  // Maple Island
+    }
+    if (map_id < 130000000) {
+        return 30;  // Victoria Island
+    }
+    if (map_id < 140000000) {
+        return 15;  // Ereve / Cygnus Knights
+    }
+    if (map_id < 150000000) {
+        return 6;   // Rien
+    }
+    if (map_id < 220000000 || (map_id >= 230000000 && map_id < 240000000)) {
+        return 33;  // El Nath Mt. + Aqua Road
+    }
+    if (map_id < 230000000) {
+        return 37;  // Ludus Lake
+    }
+    if (map_id < 250000000) {
+        return 41;  // Leafre
+    }
+    if (map_id < 270000000) {
+        return 44;  // Mu Lung + Nihal Desert
+    }
+    if (map_id < 280000000) {
+        return 46;  // Temple of Time
+    }
+    if ((map_id >= 500000000 && map_id < 540000000)
+        || (map_id >= 700000000 && map_id < 900000000)) {
+        return 48;  // World Tour
+    }
+    if (map_id >= 540000000 && map_id < 600000000) {
+        return 49;  // Singapore / Malaysia
+    }
+    if (map_id >= 600000000 && map_id < 700000000) {
+        return 45;  // Masteria
+    }
+    return -1;
+}
+
+bool is_npc_on_current_map(int32_t npc_id) {
+    if (npc_id == 0) {
+        return false;
+    }
+
+    for (auto &entry : *Stage::get().get_npcs().get_npcs()) {
+        const Npc *npc = static_cast<const Npc *>(entry.second.get());
+
+        if (npc && npc->get_id() == npc_id) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool check_npc_nearby_with_notice(int32_t npc_id,
+                                  bool skip_proximity_check,
+                                  const char *action_verb) {
+    if (npc_id == 0 || skip_proximity_check || is_npc_on_current_map(npc_id)) {
+        return true;
+    }
+
+    std::string npcname =
+        nl::nx::string["Npc.img"][std::to_string(npc_id)]["name"].get_string();
+
+    if (auto chatbar = UI::get().get_element<UIChatBar>()) {
+        chatbar->get().send_chatline(
+            "Go to " + npcname + " to " + action_verb + " this quest.",
+            UIChatBar::LineType::YELLOW);
+    }
+
+    return false;
+}
+
+bool parse_quest_id(const std::string &raw, int16_t &qid) {
+    if (!is_digits(raw)) {
+        return false;
+    }
+
+    char *end = nullptr;
+    long value = std::strtol(raw.c_str(), &end, 10);
+
+    if (end == raw.c_str() || *end != '\0' || value <= 0
+        || value > std::numeric_limits<int16_t>::max()) {
+        return false;
+    }
+
+    qid = static_cast<int16_t>(value);
+    return true;
+}
+
+std::string format_today_yyyymmdd() {
+    std::time_t now = std::time(nullptr);
+    std::tm tm_now{};
+    localtime_r(&now, &tm_now);
+
+    char buf[16];
+    std::snprintf(buf,
+                  sizeof(buf),
+                  "%04d%02d%02d",
+                  tm_now.tm_year + 1900,
+                  tm_now.tm_mon + 1,
+                  tm_now.tm_mday);
+    return std::string(buf);
 }
 }  // namespace
 
@@ -92,7 +312,14 @@ UIQuestLog::UIQuestLog(const QuestLog &ql) :
     selected_(-1),
     list_width_(0),
     detail_npc_(0),
-    detail_can_complete_(false) {
+    all_levels_(false),
+    my_location_(false),
+    detail_can_start_(false),
+    detail_can_complete_(false),
+    detail_auto_start_(false),
+    detail_auto_complete_(false),
+    detail_scripted_start_(false),
+    detail_scripted_end_(false) {
     tab_ = Buttons::TAB0;
 
     nl::node close = nl::nx::ui["Basic.img"]["BtClose3"];
@@ -122,8 +349,12 @@ UIQuestLog::UIQuestLog(const QuestLog &ql) :
     buttons_[Buttons::SEARCH] = std::make_unique<MapleButton>(list["BtSearch"]);
     buttons_[Buttons::ALL_LEVEL] =
         std::make_unique<MapleButton>(list["BtAllLevel"]);
+    buttons_[Buttons::MY_LEVEL] =
+        std::make_unique<MapleButton>(list["BtMyLevel"]);
     buttons_[Buttons::MY_LOCATION] =
         std::make_unique<MapleButton>(list["BtMyLocation"]);
+    buttons_[Buttons::ALL_LOCATION] =
+        std::make_unique<MapleButton>(list["BtAllLocation"]);
 
     search_area_ = list["searchArea"];
     auto search_area_dim = search_area_.get_dimensions();
@@ -140,6 +371,9 @@ UIQuestLog::UIQuestLog(const QuestLog &ql) :
                         Color::Name::BOULDER,
                         Rectangle<int16_t>(search_pos, search_dim),
                         19);
+    search_.set_enter_callback([this](const std::string &) { rebuild_rows(); });
+    search_.set_key_callback(KeyAction::Id::ESCAPE,
+                             [this]() { release_search_focus(); });
     placeholder_ = Text(Text::Font::A11M,
                         Text::Alignment::LEFT,
                         Color::Name::BOULDER,
@@ -148,7 +382,7 @@ UIQuestLog::UIQuestLog(const QuestLog &ql) :
     slider_ = Slider(Slider::Type::DEFAULT_SILVER,
                      Range<int16_t>(0, 279),
                      150,
-                     VISIBLE_ROWS_,
+                     1,
                      1,
                      [&](bool upwards) { scroll_rows(upwards); });
 
@@ -181,12 +415,15 @@ UIQuestLog::UIQuestLog(const QuestLog &ql) :
         std::make_unique<MapleButton>(quest_info["BtGiveup"], list_width_, 0);
     buttons_[Buttons::INFO_COMPLETE] =
         std::make_unique<MapleButton>(quest_info["BtFinish"], list_width_, 0);
+    buttons_[Buttons::INFO_ACCEPT] =
+        std::make_unique<MapleButton>(quest_info["BtAccept"], list_width_, 0);
 
     dimension_ = Point<int16_t>(list_width_ + DETAIL_WIDTH_,
                                 std::max<int16_t>(list_dimension.y(),
                                                   DETAIL_HEIGHT_));
     drag_area_ = Point<int16_t>(dimension_.x(), 20);
 
+    update_filter_buttons();
     change_tab(tab_);
 }
 
@@ -250,6 +487,7 @@ void UIQuestLog::draw(float alpha) const {
 void UIQuestLog::send_key(int32_t keycode, bool pressed, bool escape) {
     if (pressed) {
         if (escape) {
+            release_search_focus();
             deactivate();
         } else if (keycode == KeyAction::Id::TAB) {
             uint16_t new_tab = tab_;
@@ -267,8 +505,8 @@ void UIQuestLog::send_key(int32_t keycode, bool pressed, bool escape) {
 
 Cursor::State UIQuestLog::send_cursor(bool clicking, Point<int16_t> cursorpos) {
     if (slider_.isenabled()) {
-        if (Cursor::State sstate =
-                slider_.send_cursor(cursorpos - position_, clicking)) {
+        if (Cursor::State sstate = slider_.send_cursor(
+                cursorpos - position_ - Point<int16_t>(126, 75), clicking)) {
             return sstate;
         }
     }
@@ -282,7 +520,8 @@ Cursor::State UIQuestLog::send_cursor(bool clicking, Point<int16_t> cursorpos) {
 
         if (relative.x() >= LIST_LEFT_
             && relative.x() <= LIST_LEFT_ + LIST_WIDTH_
-            && relative.y() >= LIST_TOP_) {
+            && relative.y() >= LIST_TOP_
+            && relative.y() < LIST_TOP_ + VISIBLE_ROWS_ * ROW_HEIGHT_) {
             int16_t row = offset_
                           + (relative.y() - LIST_TOP_) / ROW_HEIGHT_;
 
@@ -301,6 +540,166 @@ Cursor::State UIQuestLog::send_cursor(bool clicking, Point<int16_t> cursorpos) {
     return UIDragElement::send_cursor(clicking, cursorpos);
 }
 
+bool UIQuestLog::can_start_quest(int16_t qid,
+                                 const nl::node &check_zero,
+                                 const nl::node &info,
+                                 const std::string &today_yyyymmdd) const {
+    if (!check_zero) {
+        return false;
+    }
+
+    if (questlog_.is_started(qid)) {
+        return false;
+    }
+
+    // Cosmic marks a quest repeatable only when Check.img/<qid>/0 defines an
+    // interval node.
+    if (questlog_.is_completed(qid) && !check_zero["interval"]) {
+        return false;
+    }
+
+    std::string end_date = check_zero["end"].get_string();
+
+    if (end_date.size() >= 8) {
+        std::string end_day = end_date.substr(0, 8);
+
+        if (is_digits(end_day) && end_day < today_yyyymmdd) {
+            return false;
+        }
+    }
+
+    const Player &player = Stage::get().get_player();
+    const CharStats &stats = player.get_stats();
+    uint16_t level = stats.get_stat(MapleStat::Id::LEVEL);
+    int64_t lvmin = safe_get_int(check_zero["lvmin"]);
+    int64_t lvmax = safe_get_int(check_zero["lvmax"]);
+
+    if (level < lvmin || (lvmax > 0 && level > lvmax)) {
+        return false;
+    }
+
+    if (!all_levels_ && lvmin > 0 && int32_t(level) - int32_t(lvmin) > 10) {
+        return false;
+    }
+
+    nl::node jobs = check_zero["job"];
+
+    if (jobs && jobs.size() > 0) {
+        uint16_t player_job = stats.get_job().get_id();
+
+        if (player_job != 900 && player_job != 910) {
+            bool matched = false;
+
+            for (nl::node job_entry : jobs) {
+                int64_t req_job = safe_get_int(job_entry, -1);
+
+                if (req_job >= 0 && uint16_t(req_job) == player_job) {
+                    matched = true;
+                    break;
+                }
+            }
+
+            if (!matched) {
+                return false;
+            }
+        }
+    }
+
+    for (nl::node entry : check_zero["quest"]) {
+        auto req_id = int16_t(safe_get_int(entry["id"]));
+        auto req_state = int32_t(safe_get_int(entry["state"]));
+
+        if (req_state == 0) {
+            if (questlog_.is_started(req_id) || questlog_.is_completed(req_id)) {
+                return false;
+            }
+        } else if (req_state == 1) {
+            if (!questlog_.is_started(req_id)) {
+                return false;
+            }
+        } else if (req_state == 2) {
+            if (!questlog_.is_completed(req_id)) {
+                return false;
+            }
+        } else {
+            return false;
+        }
+    }
+
+    int64_t req_completed = safe_get_int(check_zero["questComplete"]);
+
+    if (req_completed > 0
+        && int64_t(questlog_.get_completed().size()) < req_completed) {
+        return false;
+    }
+
+    nl::node field_enter = check_zero["fieldEnter"]["0"];
+
+    if (field_enter) {
+        int32_t req_map = int32_t(safe_get_int(field_enter, -1));
+
+        if (req_map >= 0 && req_map != Stage::get().get_mapid()) {
+            return false;
+        }
+    }
+
+    const Inventory &inv = player.get_inventory();
+    int64_t money = safe_get_int(check_zero["money"]);
+
+    if (money > 0 && inv.get_meso() < money) {
+        return false;
+    }
+
+    for (nl::node item_entry : check_zero["item"]) {
+        int32_t item_id = int32_t(safe_get_int(item_entry["id"]));
+
+        if (item_id == 0) {
+            continue;
+        }
+
+        int32_t count_needed = int32_t(safe_get_int(item_entry["count"]));
+        int32_t count = inv.get_total_item_count(item_id);
+
+        if ((count_needed > 0 && count < count_needed)
+            || (count_needed <= 0 && count > 0)) {
+            return false;
+        }
+    }
+
+    if (my_location_) {
+        int32_t map_id = Stage::get().get_mapid();
+        int32_t npc_id = int32_t(safe_get_int(check_zero["npc"]));
+        bool matches_location = is_npc_on_current_map(npc_id);
+
+        if (!matches_location && npc_id != 0) {
+            nl::node locations =
+                nl::nx::etc["NpcLocation.img"][std::to_string(npc_id)];
+
+            for (nl::node loc : locations) {
+                if (int32_t(safe_get_int(loc, -1)) == map_id) {
+                    matches_location = true;
+                    break;
+                }
+            }
+        }
+
+        if (!matches_location) {
+            int32_t map_area = area_for_map(map_id);
+            int32_t quest_area = int32_t(safe_get_int(info["area"], -1));
+
+            if (map_area >= 0 && quest_area == map_area) {
+                matches_location = true;
+            }
+        }
+
+        if (!matches_location) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 void UIQuestLog::rebuild_rows() {
     int16_t previous = -1;
 
@@ -312,13 +711,20 @@ void UIQuestLog::rebuild_rows() {
     offset_ = 0;
     selected_ = -1;
 
-    auto add = [&](int16_t qid) {
-        std::string name =
-            nl::nx::quest["QuestInfo.img"][std::to_string(qid)]["name"];
+    std::string needle =
+        (tab_ != Buttons::TAB2 && !search_.empty())
+            ? to_lower_ascii(search_.get_text())
+            : std::string();
 
+    auto add = [&](int16_t qid, const std::string &name) {
         // Quests without a name, such as the hidden quests that carry the
         // progress of another one, are not shown.
         if (name.empty()) {
+            return;
+        }
+
+        if (!needle.empty()
+            && to_lower_ascii(name).find(needle) == std::string::npos) {
             return;
         }
 
@@ -336,13 +742,54 @@ void UIQuestLog::rebuild_rows() {
                    LIST_WIDTH_) });
     };
 
-    if (tab_ == Buttons::TAB1) {
-        for (const auto &entry: questlog_.get_started()) {
-            add(entry.first);
+    if (tab_ == Buttons::TAB0) {
+        std::string today = format_today_yyyymmdd();
+        nl::node check_root = nl::nx::quest["Check.img"];
+        nl::node info_root = nl::nx::quest["QuestInfo.img"];
+        std::vector<std::pair<int16_t, std::string>> available;
+
+        for (nl::node check_entry : check_root) {
+            int16_t qid = 0;
+            std::string key = check_entry.name();
+
+            if (!parse_quest_id(key, qid)) {
+                continue;
+            }
+
+            nl::node info = info_root[key];
+            std::string name = info["name"].get_string();
+
+            if (name.empty() || has_unrenderable_glyphs(name)) {
+                continue;
+            }
+
+            if (can_start_quest(qid, check_entry["0"], info, today)) {
+                available.emplace_back(qid, std::move(name));
+            }
+        }
+
+        std::sort(available.begin(),
+                  available.end(),
+                  [](const auto &lhs, const auto &rhs) {
+                      return lhs.first < rhs.first;
+                  });
+
+        for (const auto &entry : available) {
+            add(entry.first, entry.second);
+        }
+    } else if (tab_ == Buttons::TAB1) {
+        nl::node info_root = nl::nx::quest["QuestInfo.img"];
+
+        for (const auto &entry : questlog_.get_started()) {
+            add(entry.first,
+                info_root[std::to_string(entry.first)]["name"].get_string());
         }
     } else if (tab_ == Buttons::TAB2) {
-        for (const auto &entry: questlog_.get_completed()) {
-            add(entry.first);
+        nl::node info_root = nl::nx::quest["QuestInfo.img"];
+
+        for (const auto &entry : questlog_.get_completed()) {
+            add(entry.first,
+                info_root[std::to_string(entry.first)]["name"].get_string());
         }
     }
 
@@ -351,7 +798,7 @@ void UIQuestLog::rebuild_rows() {
                         ? (rows + VISIBLE_ROWS_ - 1) / VISIBLE_ROWS_
                         : 1;
 
-    slider_.setrows(pages, pages);
+    slider_.setrows(1, pages);
     slider_.setenabled(rows > VISIBLE_ROWS_);
 
     if (previous >= 0) {
@@ -378,6 +825,16 @@ UIElement::Type UIQuestLog::get_type() const {
     return TYPE;
 }
 
+void UIQuestLog::toggle_active() {
+    UIElement::toggle_active();
+
+    if (is_active()) {
+        rebuild_rows();
+    } else {
+        release_search_focus();
+    }
+}
+
 void UIQuestLog::refresh() {
     rebuild_rows();
 }
@@ -390,7 +847,34 @@ Button::State UIQuestLog::button_pressed(uint16_t buttonid) {
             change_tab(buttonid);
 
             return Button::State::IDENTITY;
-        case Buttons::CLOSE: deactivate(); break;
+        case Buttons::CLOSE:
+            release_search_focus();
+            deactivate();
+            break;
+        case Buttons::SEARCH:
+            release_search_focus();
+            rebuild_rows();
+            break;
+        case Buttons::ALL_LEVEL:
+            all_levels_ = true;
+            update_filter_buttons();
+            rebuild_rows();
+            break;
+        case Buttons::MY_LEVEL:
+            all_levels_ = false;
+            update_filter_buttons();
+            rebuild_rows();
+            break;
+        case Buttons::MY_LOCATION:
+            my_location_ = true;
+            update_filter_buttons();
+            rebuild_rows();
+            break;
+        case Buttons::ALL_LOCATION:
+            my_location_ = false;
+            update_filter_buttons();
+            rebuild_rows();
+            break;
         case Buttons::INFO_CLOSE:
             selected_ = -1;
 
@@ -399,6 +883,7 @@ Button::State UIQuestLog::button_pressed(uint16_t buttonid) {
             return Button::State::NORMAL;
         case Buttons::INFO_GIVEUP: give_up(); break;
         case Buttons::INFO_COMPLETE: complete(); break;
+        case Buttons::INFO_ACCEPT: accept(); break;
         default: break;
     }
 
@@ -407,7 +892,12 @@ Button::State UIQuestLog::button_pressed(uint16_t buttonid) {
 
 void UIQuestLog::build_detail() {
     detail_npc_ = 0;
+    detail_can_start_ = false;
     detail_can_complete_ = false;
+    detail_auto_start_ = false;
+    detail_auto_complete_ = false;
+    detail_scripted_start_ = false;
+    detail_scripted_end_ = false;
 
     if (selected_ < 0 || size_t(selected_) >= rows_.size()) {
         clear_detail();
@@ -419,22 +909,47 @@ void UIQuestLog::build_detail() {
     std::string qidstr = std::to_string(qid);
 
     nl::node info = nl::nx::quest["QuestInfo.img"][qidstr];
+    nl::node check = nl::nx::quest["Check.img"][qidstr];
 
-    detail_title_.change_text(format_quest_text(info["name"]));
+    const char *desc_key =
+        tab_ == Buttons::TAB0 ? "0" : (tab_ == Buttons::TAB2 ? "2" : "1");
+
+    detail_title_.change_text(format_quest_text(info["name"].get_string()));
     detail_body_.change_text(
-        format_quest_text(info[tab_ == Buttons::TAB2 ? "2" : "1"]));
+        format_quest_text(info[desc_key].get_string()));
     detail_required_.change_text("");
 
+    bool available = tab_ == Buttons::TAB0;
     bool started = tab_ == Buttons::TAB1;
+    bool auto_start = safe_get_int(info["autoStart"]) == 1;
+    bool auto_complete = auto_start
+                         || safe_get_int(info["autoComplete"]) == 1
+                         || safe_get_int(info["autoPreComplete"]) == 1;
 
-    if (started) {
-        nl::node check = nl::nx::quest["Check.img"][qidstr];
+    if (available) {
+        nl::node check_zero = check["0"];
 
+        detail_npc_ = int32_t(safe_get_int(check_zero["npc"]));
+        detail_auto_start_ = auto_start;
+        detail_auto_complete_ = auto_complete;
+        detail_scripted_start_ = !check_zero["startscript"].get_string().empty();
+        detail_can_start_ = detail_npc_ != 0 || detail_auto_start_;
+
+        if (detail_npc_ != 0) {
+            std::string npcname =
+                nl::nx::string["Npc.img"][std::to_string(detail_npc_)]["name"]
+                    .get_string();
+
+            if (!npcname.empty()) {
+                detail_required_.change_text("NPC: " + npcname);
+            }
+        }
+    } else if (started) {
         std::string required;
 
-        for (nl::node item: check["1"]["item"]) {
-            auto itemid = int32_t(item["id"].get_integer());
-            auto count = int32_t(item["count"].get_integer());
+        for (nl::node item : check["1"]["item"]) {
+            auto itemid = int32_t(safe_get_int(item["id"]));
+            auto count = int32_t(safe_get_int(item["count"]));
 
             if (!required.empty()) {
                 required += ", ";
@@ -450,18 +965,20 @@ void UIQuestLog::build_detail() {
 
         // The server only accepts an operation from next to the npc that is
         // tied to it. Quests that start or finish on their own need none.
-        detail_npc_ = int32_t(check["1"]["npc"].get_integer());
+        detail_npc_ = int32_t(safe_get_int(check["1"]["npc"]));
 
         if (detail_npc_ == 0) {
-            detail_npc_ = int32_t(check["0"]["npc"].get_integer());
+            detail_npc_ = int32_t(safe_get_int(check["0"]["npc"]));
         }
 
-        detail_can_complete_ = detail_npc_ != 0
-                               || info["autoComplete"].get_integer() == 1
-                               || info["autoStart"].get_integer() == 1;
+        detail_auto_start_ = auto_start;
+        detail_auto_complete_ = auto_complete;
+        detail_scripted_end_ = !check["1"]["endscript"].get_string().empty();
+        detail_can_complete_ = detail_npc_ != 0 || detail_auto_complete_;
     }
 
     buttons_[Buttons::INFO_CLOSE]->set_active(true);
+    buttons_[Buttons::INFO_ACCEPT]->set_active(available && detail_can_start_);
     buttons_[Buttons::INFO_GIVEUP]->set_active(started);
     buttons_[Buttons::INFO_COMPLETE]->set_active(started
                                                  && detail_can_complete_);
@@ -469,13 +986,19 @@ void UIQuestLog::build_detail() {
 
 void UIQuestLog::clear_detail() {
     detail_npc_ = 0;
+    detail_can_start_ = false;
     detail_can_complete_ = false;
+    detail_auto_start_ = false;
+    detail_auto_complete_ = false;
+    detail_scripted_start_ = false;
+    detail_scripted_end_ = false;
 
     detail_title_.change_text("");
     detail_body_.change_text("");
     detail_required_.change_text("");
 
     buttons_[Buttons::INFO_CLOSE]->set_active(false);
+    buttons_[Buttons::INFO_ACCEPT]->set_active(false);
     buttons_[Buttons::INFO_GIVEUP]->set_active(false);
     buttons_[Buttons::INFO_COMPLETE]->set_active(false);
 }
@@ -507,6 +1030,27 @@ void UIQuestLog::draw_detail(float alpha) const {
     }
 }
 
+void UIQuestLog::accept() {
+    if (tab_ != Buttons::TAB0 || selected_ < 0
+        || size_t(selected_) >= rows_.size()) {
+        return;
+    }
+
+    if (!check_npc_nearby_with_notice(
+            detail_npc_, detail_auto_start_ || detail_auto_complete_, "start")) {
+        return;
+    }
+
+    int16_t qid = rows_[selected_].qid;
+    QuestActionPacket packet(detail_scripted_start_
+                                 ? QuestActionPacket::SCRIPTED_START
+                                 : QuestActionPacket::START,
+                             qid);
+
+    packet.write_npc(detail_npc_, Stage::get().get_player().get_position());
+    packet.dispatch();
+}
+
 void UIQuestLog::give_up() {
     if (selected_ < 0 || size_t(selected_) >= rows_.size()) {
         return;
@@ -518,45 +1062,39 @@ void UIQuestLog::give_up() {
 }
 
 void UIQuestLog::complete() {
-    if (selected_ < 0 || size_t(selected_) >= rows_.size()) {
+    if (tab_ != Buttons::TAB1 || selected_ < 0
+        || size_t(selected_) >= rows_.size()) {
+        return;
+    }
+
+    if (!check_npc_nearby_with_notice(
+            detail_npc_, detail_auto_complete_, "finish")) {
         return;
     }
 
     int16_t qid = rows_[selected_].qid;
-
-    // The server drops a completion silently when the npc is not on the map at
-    // all, so tell the player what is missing instead of doing nothing.
-    if (detail_npc_ != 0) {
-        bool npc_on_map = false;
-
-        for (auto &entry: *Stage::get().get_npcs().get_npcs()) {
-            const Npc *npc = static_cast<const Npc *>(entry.second.get());
-
-            if (npc && npc->get_id() == detail_npc_) {
-                npc_on_map = true;
-
-                break;
-            }
-        }
-
-        if (!npc_on_map) {
-            std::string npcname =
-                nl::nx::string["Npc.img"][std::to_string(detail_npc_)]["name"];
-
-            if (auto chatbar = UI::get().get_element<UIChatBar>()) {
-                chatbar->get().send_chatline(
-                    "Go to " + npcname + " to finish this quest.",
-                    UIChatBar::LineType::YELLOW);
-            }
-
-            return;
-        }
-    }
-
-    QuestActionPacket packet(QuestActionPacket::COMPLETE, qid);
+    QuestActionPacket packet(detail_scripted_end_
+                                 ? QuestActionPacket::SCRIPTED_END
+                                 : QuestActionPacket::COMPLETE,
+                             qid);
 
     packet.write_npc(detail_npc_, Stage::get().get_player().get_position());
     packet.dispatch();
+}
+
+void UIQuestLog::update_filter_buttons() {
+    bool available = tab_ == Buttons::TAB0;
+
+    buttons_[Buttons::ALL_LEVEL]->set_active(available && !all_levels_);
+    buttons_[Buttons::MY_LEVEL]->set_active(available && all_levels_);
+    buttons_[Buttons::MY_LOCATION]->set_active(available && !my_location_);
+    buttons_[Buttons::ALL_LOCATION]->set_active(available && my_location_);
+}
+
+void UIQuestLog::release_search_focus() {
+    if (search_.get_state() == Textfield::State::FOCUSED) {
+        search_.set_state(Textfield::State::NORMAL);
+    }
 }
 
 void UIQuestLog::change_tab(uint16_t tabid) {
@@ -565,17 +1103,17 @@ void UIQuestLog::change_tab(uint16_t tabid) {
 
     if (oldtab != tab_) {
         buttons_[Buttons::TAB0 + oldtab]->set_state(Button::State::NORMAL);
-        buttons_[Buttons::MY_LOCATION]->set_active(tab_ == Buttons::TAB0);
-        buttons_[Buttons::ALL_LEVEL]->set_active(tab_ == Buttons::TAB0);
         buttons_[Buttons::SEARCH]->set_active(tab_ != Buttons::TAB2);
 
         if (tab_ == Buttons::TAB2) {
+            release_search_focus();
             search_.set_state(Textfield::State::DISABLED);
         } else {
             search_.set_state(Textfield::State::NORMAL);
         }
     }
 
+    update_filter_buttons();
     buttons_[Buttons::TAB0 + tab_]->set_state(Button::State::PRESSED);
 
     rebuild_rows();

@@ -254,22 +254,46 @@ namespace ms {
 
         struct Font {
             struct Char {
-                GLshort ax;
-                GLshort ay;
-                GLshort bw;
-                GLshort bh;
-                GLshort bl;
-                GLshort bt;
+                GLshort ax = 0;
+                GLshort ay = 0;
+                GLshort bw = 0;
+                GLshort bh = 0;
+                GLshort bl = 0;
+                GLshort bt = 0;
                 Offset offset;
             };
 
             GLshort width;
             GLshort height;
-            Char chars[256];
+            Char chars[256]{};
 
             Font(GLshort w, GLshort h) : width(w), height(h) {}
 
             Font() : width(0), height(0) {}
+
+            const Char &glyph(uint32_t c) const {
+                switch (c) {
+                    case 0x2018:
+                    case 0x2019: c = '\''; break;
+                    case 0x201C:
+                    case 0x201D: c = '"'; break;
+                    case 0x2013:
+                    case 0x2014: c = '-'; break;
+                    case 0x2026: c = '.'; break;
+                    case 0x00A0: c = ' '; break;
+                    default: break;
+                }
+
+                if (c < 32) {
+                    return chars[0];
+                }
+
+                if (c < 256) {
+                    return chars[c];
+                }
+
+                return chars[static_cast<unsigned char>('?')];
+            }
 
             int16_t linespace() const {
                 return static_cast<int16_t>(height * 1.35 + 1);
