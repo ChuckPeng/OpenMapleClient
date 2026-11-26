@@ -489,6 +489,14 @@ QuestLog &Player::get_quests() {
     return quest_log_;
 }
 
+BuddyList &Player::get_buddylist() {
+    return buddy_list_;
+}
+
+const BuddyList &Player::get_buddylist() const {
+    return buddy_list_;
+}
+
 TeleportRock &Player::get_teleport_rock() {
     return teleport_rock_;
 }

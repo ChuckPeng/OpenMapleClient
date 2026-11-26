@@ -15,6 +15,7 @@ add_library(OpenMapleClient SHARED
         src/Configuration.cpp
         src/Audio/Audio.cpp
         src/Character/ActiveBuffs.cpp
+        src/Character/BuddyList.cpp
         src/Character/Buff.cpp
         src/Character/Char.cpp
         src/Character/CharEffect.cpp

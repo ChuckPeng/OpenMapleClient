@@ -112,4 +112,10 @@ class KeymapHandler : public PacketHandler {
 class UpdateQuestInfoHandler : public PacketHandler {
     void handle(InPacket &recv) const override;
 };
+
+// Synchronizes buddy list entries, pending requests, online channels, and capacity
+// Opcode: BUDDYLIST(63)
+class BuddyListHandler : public PacketHandler {
+    void handle(InPacket &recv) const override;
+};
 }  // namespace ms

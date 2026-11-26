@@ -21,6 +21,7 @@
 #include "../Gameplay/Physics/Physics.h"
 #include "../Gameplay/Playable.h"
 #include "ActiveBuffs.h"
+#include "BuddyList.h"
 #include "Inventory/Inventory.h"
 #include "MonsterBook.h"
 #include "PassiveBuffs.h"
@@ -177,6 +178,10 @@ public:
     // Obtain a reference to the player's questlog.
     QuestLog &get_quests();
 
+    // Obtain a reference to the player's buddy list.
+    BuddyList &get_buddylist();
+    const BuddyList &get_buddylist() const;
+
     // Obtain a reference to the player's telerock locations.
     TeleportRock &get_teleport_rock();
 
@@ -190,6 +195,7 @@ private:
     Inventory inventory_;
     SkillBook skill_book_;
     QuestLog quest_log_;
+    BuddyList buddy_list_;
     TeleportRock teleport_rock_;
     MonsterBook monster_book_;
 

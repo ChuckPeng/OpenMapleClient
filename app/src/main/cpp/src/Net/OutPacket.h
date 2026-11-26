@@ -279,6 +279,7 @@ public:
         PLAYER_INTERACTION = 123,
         PARTY_OPERATION = 124,
         ADMIN_COMMAND = 128,
+        BUDDYLIST_MODIFY = 130,
         MOVE_MONSTER = 188,
         PICKUP_ITEM = 202,
         DAMAGE_REACTOR = 205,

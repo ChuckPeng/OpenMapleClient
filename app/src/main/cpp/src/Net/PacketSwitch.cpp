@@ -422,6 +422,7 @@ enum Opcode : uint16_t {
     /// Player
     ADD_COOLDOWN = 234,
     UPDATE_QUEST_INFO = 211,
+    BUDDYLIST = 63,
 
     /// MapObject
     SPAWN_MOB = 236,
@@ -457,7 +458,6 @@ enum Opcode : uint16_t {
 
     /// Parsed but not shown by the client yet
     SET_GENDER = 58,
-    BUDDYLIST = 63,
     FAMILY_INFO_RESULT = 95,
     FAMILY_PRIVILEGE_LIST = 100,
     ADMIN_RESULT = 144,
@@ -530,6 +530,7 @@ PacketSwitch::PacketSwitch() {
     emplace<FAME_RESPONSE, FameResponseHandler>();
     emplace<ADD_COOLDOWN, AddCooldownHandler>();
     emplace<UPDATE_QUEST_INFO, UpdateQuestInfoHandler>();
+    emplace<BUDDYLIST, BuddyListHandler>();
 
     // Messaging handlers
     emplace<SHOW_STATUS_INFO, ShowStatusInfoHandler>();
@@ -571,7 +572,6 @@ PacketSwitch::PacketSwitch() {
     emplace<DISABLE_UI, DisableUiHandler>();
     emplace<AUTO_HP_POT, AutoPotHandler>();
     emplace<AUTO_MP_POT, AutoPotHandler>();
-    emplace<BUDDYLIST, IgnoredPacketHandler>();
     emplace<FAMILY_INFO_RESULT, IgnoredPacketHandler>();
     emplace<FAMILY_PRIVILEGE_LIST, IgnoredPacketHandler>();
     emplace<ADMIN_RESULT, IgnoredPacketHandler>();

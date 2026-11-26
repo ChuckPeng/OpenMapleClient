@@ -108,7 +108,8 @@ void SetFieldHandler::set_field(InPacket &recv) const {
 
     Player &player = Stage::get().get_player();
 
-    recv.read_byte();  // 'buddycap'
+    uint8_t buddycap = recv.read_ubyte();
+    player.get_buddylist().set_capacity(buddycap);
 
     if (recv.read_bool()) {
         recv.read_string();  // 'linkedname'

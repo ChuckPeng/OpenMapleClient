@@ -24,7 +24,10 @@
 #include "../../IO/Window.h"
 #include "Helpers/LoginParser.h"
 #include "../../IO/UITypes/UIChatBar.h"
+#include "../../IO/UITypes/UINotice.h"
 #include "../../IO/UITypes/UIQuestLog.h"
+#include "../../IO/UITypes/UIUserList.h"
+#include "../../Net/Packets/BuddyPackets.h"
 #include "../../Net/Packets/LoginPackets.h"
 #include "../../Net/PacketProcessor.h"
 #include "../Packets/GameplayPackets.h"
@@ -401,6 +404,118 @@ void UpdateQuestInfoHandler::handle(InPacket &recv) const {
             }
         } break;
         default: break;
+    }
+
+    recv.skip(recv.length());
+}
+
+void BuddyListHandler::handle(InPacket &recv) const {
+    uint8_t mode = recv.read_ubyte();
+    Player &player = Stage::get().get_player();
+
+    switch (mode) {
+        case 0x07: {  // updateBuddylist
+            uint8_t size = recv.read_ubyte();
+            int32_t rem = static_cast<int32_t>(recv.length());
+            int32_t trail = static_cast<int32_t>(size) * 4;
+            int32_t visible_count = (rem >= trail) ? (rem - trail) / 39 : 0;
+
+            std::vector<BuddyEntry> entries;
+            entries.reserve(static_cast<size_t>(visible_count));
+
+            for (int32_t i = 0; i < visible_count; ++i) {
+                int32_t cid = recv.read_int();
+                std::string name = recv.read_padded_string(13);
+                recv.read_ubyte();
+                int32_t channel = recv.read_int();
+                std::string group = recv.read_padded_string(13);
+                recv.read_int();
+
+                if (group.empty()) {
+                    group = "Default Group";
+                }
+
+                entries.push_back(
+                    { cid, std::move(name), std::move(group), channel });
+            }
+
+            player.get_buddylist().set_buddies(std::move(entries));
+            if (auto ul = UI::get().get_element<UIUserList>()) {
+                ul->get().refresh_buddies();
+            }
+        } break;
+        case 0x09: {  // requestBuddylistAdd
+            int32_t cid_from = recv.read_int();
+            std::string name_from = recv.read_string();
+
+            show_quest_message(name_from + " wants to add you as a buddy.",
+                               UIChatBar::LineType::YELLOW);
+            UI::get().emplace<UIYesNo>(
+                name_from + " wants to add you to their Buddy List. Accept?",
+                [cid_from](bool yes) {
+                    if (yes) {
+                        AcceptBuddyPacket(cid_from).dispatch();
+                    } else {
+                        DeleteBuddyPacket(cid_from).dispatch();
+                    }
+                });
+        } break;
+        case 0x14: {  // updateBuddyChannel
+            int32_t cid = recv.read_int();
+            recv.read_ubyte();
+            int32_t channel = recv.read_int();
+
+            std::string name;
+            bool changed = false;
+            if (player.get_buddylist().update_channel(
+                    cid, channel, &name, &changed)) {
+                if (changed) {
+                    std::string msg =
+                        "[Buddy] " + name
+                        + (channel >= 0
+                               ? " is online (Channel "
+                                     + std::to_string(channel + 1) + ")."
+                               : " has gone offline.");
+                    show_quest_message(msg, UIChatBar::LineType::GREEN);
+                }
+
+                if (auto ul = UI::get().get_element<UIUserList>()) {
+                    ul->get().refresh_buddies();
+                }
+            }
+        } break;
+        case 0x15: {  // updateBuddyCapacity
+            uint8_t capacity = recv.read_ubyte();
+            player.get_buddylist().set_capacity(capacity);
+
+            if (auto ul = UI::get().get_element<UIUserList>()) {
+                ul->get().refresh_buddies();
+            }
+
+            show_quest_message("Your Buddy List capacity has been updated to "
+                                   + std::to_string(capacity) + ".",
+                               UIChatBar::LineType::YELLOW);
+        } break;
+        default: {
+            std::string msg;
+            switch (mode) {
+                case 0x0B: msg = "Your Buddy List is full."; break;
+                case 0x0C: msg = "The user's Buddy List is full."; break;
+                case 0x0D:
+                    msg = "That character is already registered as your buddy.";
+                    break;
+                case 0x0E:
+                    msg = "Gamemasters are not available as buddies.";
+                    break;
+                case 0x0F: msg = "That character is not registered."; break;
+                default: break;
+            }
+
+            if (!msg.empty()) {
+                show_quest_message(msg, UIChatBar::LineType::YELLOW);
+                UI::get().emplace<UIOk>(msg, [](bool) {});
+            }
+        } break;
     }
 
     recv.skip(recv.length());

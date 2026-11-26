@@ -19,6 +19,7 @@
 #include "../../Gameplay/Stage.h"
 #include "../../IO/UI.h"
 #include "../../IO/UITypes/UIChatBar.h"
+#include "../../IO/UITypes/UINotice.h"
 #include "../../IO/UITypes/UIQuestLog.h"
 #include "../../IO/UITypes/UIStatusMessenger.h"
 
@@ -167,22 +168,31 @@ void ShowStatusInfoHandler::show_status(Color::Name color,
 
 void ServerMessageHandler::handle(InPacket &recv) const {
     int8_t type = recv.read_byte();
-    bool servermessage = recv.inspect_bool();
 
-    if (servermessage) {
+    if (type == 4 && recv.inspect_bool()) {
         recv.skip(1);
     }
 
     std::string message = recv.read_string();
 
-    if (type == 3) {
+    if (type == 1) {
+        if (auto chatbar = UI::get().get_element<UIChatBar>()) {
+            chatbar->get().send_chatline(message, UIChatBar::LineType::YELLOW);
+        }
+        UI::get().emplace<UIOk>(message, [](bool) {});
+    } else if (type == 3) {
         recv.read_byte();  // channel
         recv.read_bool();  // megaphone
     } else if (type == 4) {
         UI::get().set_scrollnotice(message + " msclient v0.4.0");
+    } else if (type == 6) {
+        recv.read_int();
+        if (auto chatbar = UI::get().get_element<UIChatBar>()) {
+            chatbar->get().send_chatline(message, UIChatBar::LineType::BLUE);
+        }
     } else if (type == 7) {
         recv.read_int();  // npcid
-    } else if (type == 0 || type == 2 || type == 5 || type == 6) {
+    } else if (type == 0 || type == 2 || type == 5) {
         // Plain notices, such as the messages the server drops when an action
         // of the player is refused.
         if (auto chatbar = UI::get().get_element<UIChatBar>()) {

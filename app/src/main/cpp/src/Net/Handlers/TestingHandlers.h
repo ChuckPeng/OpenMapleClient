@@ -77,8 +77,7 @@ class DisableUiHandler : public PacketHandler {
 };
 
 // Packets of systems the client does not show yet
-// Opcodes: BUDDYLIST(63), FAMILY_INFO_RESULT(95), FAMILY_PRIVILEGE_LIST(100),
-//          ADMIN_RESULT(144)
+// Opcodes: FAMILY_INFO_RESULT(95), FAMILY_PRIVILEGE_LIST(100), ADMIN_RESULT(144)
 class IgnoredPacketHandler : public PacketHandler {
     void handle(InPacket &recv) const override;
 };
